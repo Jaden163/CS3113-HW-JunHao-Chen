@@ -20,6 +20,11 @@
 		6DEF23C11B96CC2600BCE792 /* fragment.glsl in Resources */ = {isa = PBXBuildFile; fileRef = 6DEF23BB1B96CC2600BCE792 /* fragment.glsl */; };
 		6DEF23C31B96CC2600BCE792 /* ShaderProgram.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DEF23BE1B96CC2600BCE792 /* ShaderProgram.cpp */; };
 		6DEF23C41B96CC2600BCE792 /* vertex.glsl in Resources */ = {isa = PBXBuildFile; fileRef = 6DEF23C01B96CC2600BCE792 /* vertex.glsl */; };
+		CF178B97222CD1C400919FAC /* cardClubs3.png in Resources */ = {isa = PBXBuildFile; fileRef = CF178B92222CD1C400919FAC /* cardClubs3.png */; };
+		CF178B98222CD1C400919FAC /* cardHearts7.png in Resources */ = {isa = PBXBuildFile; fileRef = CF178B93222CD1C400919FAC /* cardHearts7.png */; };
+		CF178B99222CD1C400919FAC /* chipRedWhite_side.png in Resources */ = {isa = PBXBuildFile; fileRef = CF178B94222CD1C400919FAC /* chipRedWhite_side.png */; };
+		CF178B9A222CD1C400919FAC /* cardBack_blue5.png in Resources */ = {isa = PBXBuildFile; fileRef = CF178B95222CD1C400919FAC /* cardBack_blue5.png */; };
+		CF178B9B222CD1C400919FAC /* cardDiamondsJ.png in Resources */ = {isa = PBXBuildFile; fileRef = CF178B96222CD1C400919FAC /* cardDiamondsJ.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +46,11 @@
 		6DEF23BB1B96CC2600BCE792 /* fragment.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fragment.glsl; sourceTree = "<group>"; };
 		6DEF23BE1B96CC2600BCE792 /* ShaderProgram.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ShaderProgram.cpp; sourceTree = "<group>"; };
 		6DEF23C01B96CC2600BCE792 /* vertex.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = vertex.glsl; sourceTree = "<group>"; };
+		CF178B92222CD1C400919FAC /* cardClubs3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cardClubs3.png; sourceTree = "<group>"; };
+		CF178B93222CD1C400919FAC /* cardHearts7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cardHearts7.png; sourceTree = "<group>"; };
+		CF178B94222CD1C400919FAC /* chipRedWhite_side.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = chipRedWhite_side.png; sourceTree = "<group>"; };
+		CF178B95222CD1C400919FAC /* cardBack_blue5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cardBack_blue5.png; sourceTree = "<group>"; };
+		CF178B96222CD1C400919FAC /* cardDiamondsJ.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cardDiamondsJ.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +133,11 @@
 				6DEF23BB1B96CC2600BCE792 /* fragment.glsl */,
 				6DE9D2F01BA6AB8C002D599C /* fragment_textured.glsl */,
 				6DC707691BA7273500225B7D /* vertex_textured.glsl */,
+				CF178B95222CD1C400919FAC /* cardBack_blue5.png */,
+				CF178B92222CD1C400919FAC /* cardClubs3.png */,
+				CF178B96222CD1C400919FAC /* cardDiamondsJ.png */,
+				CF178B93222CD1C400919FAC /* cardHearts7.png */,
+				CF178B94222CD1C400919FAC /* chipRedWhite_side.png */,
 				6DEF23BE1B96CC2600BCE792 /* ShaderProgram.cpp */,
 				6DEF23C01B96CC2600BCE792 /* vertex.glsl */,
 				6D5A86B919AE5C710066C1FD /* main.cpp */,
@@ -184,12 +199,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				6D5A86B819AE5C710066C1FD /* InfoPlist.strings in Resources */,
+				CF178B9A222CD1C400919FAC /* cardBack_blue5.png in Resources */,
 				6DEF23C11B96CC2600BCE792 /* fragment.glsl in Resources */,
 				6DE9D2F11BA6AB8C002D599C /* fragment_textured.glsl in Resources */,
 				6D5A86C619AE5C710066C1FD /* Images.xcassets in Resources */,
 				6D5A86BE19AE5C710066C1FD /* Credits.rtf in Resources */,
 				6DEF23C41B96CC2600BCE792 /* vertex.glsl in Resources */,
+				CF178B9B222CD1C400919FAC /* cardDiamondsJ.png in Resources */,
 				6DC7076A1BA7273500225B7D /* vertex_textured.glsl in Resources */,
+				CF178B97222CD1C400919FAC /* cardClubs3.png in Resources */,
+				CF178B99222CD1C400919FAC /* chipRedWhite_side.png in Resources */,
+				CF178B98222CD1C400919FAC /* cardHearts7.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
