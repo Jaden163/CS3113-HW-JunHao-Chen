@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
     float ballY_position=0.0f;
     
     // default ball speed
-    float ballXSpeed=1.0f;
-    float ballYSpeed=1.0f;
+    float ballXSpeed=1.5f;
+    float ballYSpeed=1.5f;
     
     // width and length of borders
     float borderWidth=1*0.15f;
@@ -162,11 +162,11 @@ int main(int argc, char *argv[])
         ballY_position+=(ballYSpeed*elapsed);
         
         // checks if someone scores by changing background color and resetting the ball.
-        if (ballX_position<leftBarXPos-barWidth/2){
+        if (ballX_position<leftBarXPos){
             glClearColor(0.5f,0.0f,0.0f,1.0f);
             ballX_position=0.0f;
             ballY_position=0.0f;
-        }else if( ballX_position>rightBarXPos+barWidth/2){
+        }else if( ballX_position>rightBarXPos){
             glClearColor(0.0f,0.0f,0.5f,1.0f);
             ballX_position=0.0f;
             ballY_position=0.0f;
