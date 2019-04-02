@@ -22,6 +22,7 @@ using namespace std;
 #define START_BOX_TOP 0.122f
 #define START_BOX_BOTTOM -0.122f
 #define START_BOX_RIGHT 0.5f
+#define WINNING_SCORE 2100
 
 
 #ifdef _WINDOWS
@@ -136,7 +137,10 @@ public:
                 if (checkCollision(state.bullets[i])){
                     aliveFlag=false;
                     state.bullets[i].position.x=200.0f;
-                    state.score+=10;
+                    state.score+=100;
+                    if (state.score==2100){
+                        mode=GAME_OVER;
+                    }
                     break;
                 }
             }
@@ -296,9 +300,10 @@ void DrawText(ShaderProgram &program, int fontTexture, std::string text, float s
         
         glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texPointer);
         glEnableVertexAttribArray(program.texCoordAttribute);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        
         vectPointer+=12;
         texPointer+=12;
-        glDrawArrays(GL_TRIANGLES, 0, 6);
         
     }
 }
@@ -324,20 +329,7 @@ void renderGameLevel(GameState& state){
     string scoreST=std::to_string(state.score);
     DrawText(program, textSheet, scoreST , 0.5f,0.0005f);
     
-    glDisableVertexAttribArray(program.positionAttribute);
-    glDisableVertexAttribArray(program.texCoordAttribute);
-    SDL_GL_SwapWindow(displayWindow);
 }
-
-void updateGameLevel(GameState & state,float elapsed){
-    for (int i=0;i<MAX_BULLETS;i++){
-        state.bullets[i].Update(FIXED_TIMESTEP);
-    }
-    for (Entity& someEntity:state.spaceShips){
-        someEntity.Update(FIXED_TIMESTEP);
-    }
-}
-
 
 void renderGameMenu(){
     glClear(GL_COLOR_BUFFER_BIT);
@@ -356,12 +348,28 @@ void renderGameMenu(){
     modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.25f,0.0f,1.0f));
     modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
     program.SetModelMatrix(modelMatrix);
-    
     DrawText(program, textSheet, "Start", 0.25f,0.0005f);
+
+}
+
+void renderGameOver(){
+    glClear(GL_COLOR_BUFFER_BIT);
     
-    glDisableVertexAttribArray(program.positionAttribute);
-    glDisableVertexAttribArray(program.texCoordAttribute);
-    SDL_GL_SwapWindow(displayWindow);
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program1.positionAttribute);
+    
+    program1.SetColor(1.0f, 0.0f, 0.0f, 1.0f);
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.385f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.35f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(program, textSheet, "Play Again", 0.25f,0.0005f);
 }
 
 void Render(){
@@ -372,8 +380,21 @@ void Render(){
         case GAME_LEVEL:
             renderGameLevel(state);
             break;
+        case GAME_OVER:
+            renderGameOver();
     }
 }
+
+void updateGameLevel(GameState & state,float elapsed){
+    for (int i=0;i<MAX_BULLETS;i++){
+        state.bullets[i].Update(FIXED_TIMESTEP);
+    }
+    for (Entity& someEntity:state.spaceShips){
+        someEntity.Update(FIXED_TIMESTEP);
+    }
+}
+
+
 
 void updateMainMenu(){
     
@@ -393,7 +414,6 @@ void Update(float elapsed){
             break;
         case GAME_LEVEL:
             updateGameLevel(state, elapsed);
-            break;
     }
 }
 
@@ -506,7 +526,26 @@ int main(int argc, char *argv[])
             if (event.type==SDL_MOUSEBUTTONDOWN && mode==MAIN_MENU) {
                 if(mouseX>START_BOX_Left && mouseX<START_BOX_RIGHT && mouseY>START_BOX_BOTTOM && mouseY<START_BOX_TOP){
                 mode=GAME_LEVEL;
+                }
             }
+            if (event.type==SDL_MOUSEBUTTONDOWN && mode==GAME_OVER) {
+                if(mouseX>START_BOX_Left && mouseX<START_BOX_RIGHT && mouseY>START_BOX_BOTTOM && mouseY<START_BOX_TOP){
+                    mode=GAME_LEVEL;
+                    float x_pos=-1.1f;
+                    float y_pos=0.8f;
+                    for(int i=0; i < 21; i++) {
+                        if (x_pos>1.1f){
+                            // if x>1.1f, create enemies on the next row
+                            x_pos=-1.1f;
+                            y_pos-=0.25f;
+                            state.spaceShips[i].position=glm::vec3(x_pos,y_pos,1.0f);
+                            state.spaceShips[i].aliveFlag=true;
+                            x_pos+=0.35f;
+                            }
+                    state.spaceShips[21].position=glm::vec3(0.0f,-0.75f,1.0f);
+                        state.score=0;
+                        }
+                }
             }
         }
         
@@ -527,7 +566,13 @@ int main(int argc, char *argv[])
         }
         accumulator = elapsed;
         Render();
+        
+        glDisableVertexAttribArray(program.positionAttribute);
+        glDisableVertexAttribArray(program.texCoordAttribute);
+        glDisableVertexAttribArray(program1.positionAttribute);
+        SDL_GL_SwapWindow(displayWindow);
     }
+
     
     SDL_Quit();
     return 0;
