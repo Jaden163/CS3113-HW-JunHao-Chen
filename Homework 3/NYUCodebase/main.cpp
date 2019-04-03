@@ -290,22 +290,17 @@ void DrawText(ShaderProgram &program, int fontTexture, std::string text, float s
     // draw this data (use the .data() method of std::vector to get pointer to data)
     // draw this yourself, use text.size() * 6 or vertexData.size()/2 to get number of vertices
     
-    float* vectPointer=vertexData.data();
-    float* texPointer=texCoordData.data();
-    
-    for (int i=0;i<vertexData.size()/2;i++){
-        
-        glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vectPointer);
+
+
+        glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
         glEnableVertexAttribArray(program.positionAttribute);
         
-        glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texPointer);
+        glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoordData.data());
         glEnableVertexAttribArray(program.texCoordAttribute);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        
-        vectPointer+=12;
-        texPointer+=12;
-        
-    }
+        glDrawArrays(GL_TRIANGLES, 0, 6*text.size());
+    
+    
+
 }
 
 
@@ -315,7 +310,7 @@ void renderGameLevel(GameState& state){
     
     for ( Entity& someEntity:state.spaceShips){
         if(someEntity.aliveFlag){
-        someEntity.Render(program);
+            someEntity.Render(program);
         }
     }
     for(int i=0; i < MAX_BULLETS; i++) {
@@ -370,6 +365,16 @@ void renderGameOver(){
     modelMatrix=glm::scale(modelMatrix,glm::vec3(0.35f,0.5f,1.0f));
     program.SetModelMatrix(modelMatrix);
     DrawText(program, textSheet, "Play Again", 0.25f,0.0005f);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.45f,0.25f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.45f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    if (state.score<WINNING_SCORE){
+        DrawText(program, textSheet, "You Lose!", 0.25f,0.0005f);
+    }else if(state.score==WINNING_SCORE){
+        DrawText(program, textSheet, "You Win!", 0.25f, 0.0005f);
+    }
 }
 
 void Render(){
@@ -538,13 +543,16 @@ int main(int argc, char *argv[])
                             // if x>1.1f, create enemies on the next row
                             x_pos=-1.1f;
                             y_pos-=0.25f;
-                            state.spaceShips[i].position=glm::vec3(x_pos,y_pos,1.0f);
-                            state.spaceShips[i].aliveFlag=true;
-                            x_pos+=0.35f;
-                            }
-                    state.spaceShips[21].position=glm::vec3(0.0f,-0.75f,1.0f);
-                        state.score=0;
                         }
+                        state.spaceShips[i].position=glm::vec3(x_pos,y_pos,1.0f);
+                        state.spaceShips[i].aliveFlag=true;
+                        x_pos+=0.35f;
+                    }
+                    state.spaceShips[21].position=glm::vec3(0.0f,-0.75f,1.0f);
+                    state.score=0;
+                    for(int i=0; i < MAX_BULLETS; i++) {
+                        state.bullets[i].position=glm::vec3(2000.0f,0.0f,1.0f);
+                    }
                 }
             }
         }
