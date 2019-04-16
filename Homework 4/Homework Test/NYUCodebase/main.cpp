@@ -19,9 +19,9 @@
 #endif
 
 #define LEVEL_WIDTH 128
-#define LEVEL_HEIGHT 12
-#define SPRITE_COUNT_X 16
-#define SPRITE_COUNT_Y 8
+#define LEVEL_HEIGHT 20
+#define SPRITE_COUNT_X 32
+#define SPRITE_COUNT_Y 32
 #define TILE_SIZE 1/16.0f
 
 
@@ -34,10 +34,8 @@ ShaderProgram program;
 ShaderProgram program1;
 //initialize textsheet
 GLuint characters;
+GLuint mineCraft;
 
-// initialize data vect
-std::vector<float> vertexData;
-std::vector<float> texCoordData;
 // initialze map
 FlareMap map;
 
@@ -97,9 +95,11 @@ void setUp(){
     // only needs to set Blend once
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    
     map.Load(RESOURCE_FOLDER"marioClone.txt");
+    mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
 
+
+    
 }
 
 void renderMap(){
@@ -122,7 +122,9 @@ int main(int argc, char *argv[])
         }
         
         glClear(GL_COLOR_BUFFER_BIT);
-        GLuint mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
+        
+        std::vector<float> vertexData;
+        std::vector<float> texCoordData;
         
         for(int y=0; y < LEVEL_HEIGHT; y++) {
             for(int x=0; x < LEVEL_WIDTH; x++) {
@@ -152,7 +154,7 @@ int main(int argc, char *argv[])
         }
         
         glBindTexture(GL_TEXTURE_2D, mineCraft);
-
+        
         glm::mat4 modelMatrix=glm::mat4(1.0f);
         program.SetModelMatrix(modelMatrix);
         
@@ -164,10 +166,11 @@ int main(int argc, char *argv[])
         int tiles=LEVEL_WIDTH*LEVEL_HEIGHT;
         glDrawArrays(GL_TRIANGLES, 0, 6*tiles);
         
+        
         glDisableVertexAttribArray(program.positionAttribute);
         glDisableVertexAttribArray(program.texCoordAttribute);
         SDL_GL_SwapWindow(displayWindow);
-        
+
     }
     
     SDL_Quit();
