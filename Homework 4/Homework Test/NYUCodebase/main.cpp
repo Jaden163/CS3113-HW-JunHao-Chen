@@ -22,6 +22,8 @@
 #define LEVEL_HEIGHT 20
 #define SPRITE_COUNT_X 32
 #define SPRITE_COUNT_Y 32
+#define SPRITE_CHARACTER_COUNT_X 16
+#define SPRITE_CHARACTER_COUNT_Y 8
 #define TILE_SIZE 1/16.0f
 
 
@@ -35,6 +37,9 @@ ShaderProgram program1;
 //initialize textsheet
 GLuint characters;
 GLuint mineCraft;
+
+glm::mat4 modelMatrix = glm::mat4(1.0f);
+glm::mat4 viewMatrix = glm::mat4(1.0f);
 
 // initialze map
 FlareMap map;
@@ -77,8 +82,7 @@ void setUp(){
     
     //creates the 3 matrixes
     glm::mat4 projectionMatrix=glm::mat4(1.0f);
-    glm::mat4 modelMatrix = glm::mat4(1.0f);
-    glm::mat4 viewMatrix = glm::mat4(1.0f);
+
 
     
     //sets up ortho and use the programs
@@ -97,38 +101,23 @@ void setUp(){
     glEnable(GL_BLEND);
     map.Load(RESOURCE_FOLDER"marioClone.txt");
     mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
+    characters=LoadTexture(RESOURCE_FOLDER"arne_sprites.png");
 
+    
 
     
 }
 
 void renderMap(){
     
-}
-
-
-int main(int argc, char *argv[])
-{
+    std::vector<float> vertexData;
+    std::vector<float> texCoordData;
     
-    setUp();
-    
-    SDL_Event event;
-    bool done = false;
-    while (!done) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
-                done = true;
+    for(int y=0; y < LEVEL_HEIGHT; y++) {
+        for(int x=0; x < LEVEL_WIDTH; x++) {
+            if (map.mapData[y][x]==0){
+                map.mapData[y][x]=704;
             }
-        }
-        
-        glClear(GL_COLOR_BUFFER_BIT);
-        
-        std::vector<float> vertexData;
-        std::vector<float> texCoordData;
-        
-        for(int y=0; y < LEVEL_HEIGHT; y++) {
-            for(int x=0; x < LEVEL_WIDTH; x++) {
-                if(map.mapData[y][x] != 0) {
                 float u = (float)(((int)map.mapData[y][x]) % SPRITE_COUNT_X) / (float) SPRITE_COUNT_X;
                 float v = (float)(((int)map.mapData[y][x]) / SPRITE_COUNT_X) / (float) SPRITE_COUNT_Y;
                 float spriteWidth = 1.0f/(float)SPRITE_COUNT_X;
@@ -149,28 +138,109 @@ int main(int argc, char *argv[])
                     u+spriteWidth, v+(spriteHeight),
                     u+spriteWidth, v
                 });
-                }
+            
+        }
+    }
+    
+    
+    glBindTexture(GL_TEXTURE_2D, mineCraft);
+    
+    glm::mat4 modelMatrix=glm::mat4(1.0f);
+    program.SetModelMatrix(modelMatrix);
+    
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
+    glEnableVertexAttribArray(program.positionAttribute);
+    
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoordData.data());
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    glDrawArrays(GL_TRIANGLES, 0, LEVEL_WIDTH*LEVEL_HEIGHT*6);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+}
+
+
+
+
+
+void renderCharacters(){
+    
+    int index=76;
+    //map.entities[9].position=glm::vec3(x/)
+    
+    
+    float xPos=map.entities[9].x*TILE_SIZE;
+    float yPos=map.entities[9].y*-TILE_SIZE;
+
+    glm::vec3 position=glm::vec3(xPos,yPos,0.0f);
+    
+    float u = (float)(((int)index) % SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_X;
+    float v = (float)(((int)index) / SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_Y;
+    float spriteWidth = 1.0/(float)SPRITE_CHARACTER_COUNT_X;
+    float spriteHeight = 1.0/(float)SPRITE_CHARACTER_COUNT_Y;
+    float texCoords[] = {
+        u, v+spriteHeight,
+        u+spriteWidth, v,
+        u, v,
+        u+spriteWidth, v,
+        u, v+spriteHeight,
+        u+spriteWidth, v+spriteHeight
+    };
+    
+    float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f,  -0.5f,
+        -0.5f, 0.5f, -0.5f};
+    
+    glBindTexture(GL_TEXTURE_2D, characters);
+    
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program.positionAttribute);
+    
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    
+    modelMatrix=glm::mat4(1.0f);
+    //modelMatrix=glm::translate(modelMatrix,glm::vec3(map.entities[9].x*TILE_SIZE,map.entities[9].y*-TILE_SIZE,0.0f));
+    modelMatrix=glm::translate(modelMatrix,position);
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+}
+
+
+int main(int argc, char *argv[])
+{
+    
+    setUp();
+    
+    SDL_Event event;
+    bool done = false;
+    while (!done) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
+                done = true;
             }
         }
-        
-        glBindTexture(GL_TEXTURE_2D, mineCraft);
-        
-        glm::mat4 modelMatrix=glm::mat4(1.0f);
-        program.SetModelMatrix(modelMatrix);
-        
-        glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
-        glEnableVertexAttribArray(program.positionAttribute);
-        
-        glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoordData.data());
-        glEnableVertexAttribArray(program.texCoordAttribute);
-        int tiles=LEVEL_WIDTH*LEVEL_HEIGHT;
-        glDrawArrays(GL_TRIANGLES, 0, 6*tiles);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(144/255.0, 221/255.0, 223/255.0, 1.0f);
+        renderMap();
+        renderCharacters();
+        viewMatrix = glm::mat4(1.0f);
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(-1.0f,0.75f,1.0f));
+        program.SetViewMatrix(viewMatrix);
         
         
-        glDisableVertexAttribArray(program.positionAttribute);
-        glDisableVertexAttribArray(program.texCoordAttribute);
+        
+        
+        
+        
+        
+       
+        
         SDL_GL_SwapWindow(displayWindow);
-
     }
     
     SDL_Quit();

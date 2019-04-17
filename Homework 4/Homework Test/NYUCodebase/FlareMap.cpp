@@ -115,7 +115,7 @@ void FlareMap::Load(const std::string fileName) {
 			}
 		} else if(line == "[layer]") {
 			ReadLayerData(infile);
-		} else if(line == "[ObjectsLayer]") {
+		} else if(line == "[Enemy]") {
 			ReadEntityData(infile);
 		}
 	}
