@@ -24,7 +24,10 @@
 #define SPRITE_COUNT_Y 32
 #define SPRITE_CHARACTER_COUNT_X 16
 #define SPRITE_CHARACTER_COUNT_Y 8
+#define FIXED_TIMESTEP 0.0166666f
 #define TILE_SIZE 1/16.0f
+
+using namespace std;
 
 
 
@@ -34,15 +37,117 @@ SDL_Window* displayWindow;
 ShaderProgram program;
 //initializes the untextured program
 ShaderProgram program1;
+//initialize keyboard
+const Uint8 *keys=SDL_GetKeyboardState(NULL);
 //initialize textsheet
 GLuint characters;
 GLuint mineCraft;
+int countX=0;
+
+
+
+
+
+class Entity;
 
 glm::mat4 modelMatrix = glm::mat4(1.0f);
 glm::mat4 viewMatrix = glm::mat4(1.0f);
 
 // initialze map
 FlareMap map;
+std::vector <Entity> entities;
+
+float lerp(float v0, float v1, float t) {
+    return (1.0-t)*v0 + t*v1;
+}
+
+
+enum EntityType {ENEMY,PLAYER};
+class Entity{
+public:
+    
+    void render(){
+        float u = (float)(((int)index) % SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_X;
+        float v = (float)(((int)index) / SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_Y;
+        float spriteWidth = 1.0/(float)SPRITE_CHARACTER_COUNT_X;
+        float spriteHeight = 1.0/(float)SPRITE_CHARACTER_COUNT_Y;
+        float texCoords[] = {
+            u, v+spriteHeight,
+            u+spriteWidth, v,
+            u, v,
+            u+spriteWidth, v,
+            u, v+spriteHeight,
+            u+spriteWidth, v+spriteHeight
+        };
+        
+        float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f,  -0.5f,
+            -0.5f, 0.5f, -0.5f};
+        
+        glBindTexture(GL_TEXTURE_2D, characters);
+        
+        glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+        glEnableVertexAttribArray(program.positionAttribute);
+        
+        glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+        glEnableVertexAttribArray(program.texCoordAttribute);
+        
+        modelMatrix=glm::mat4(1.0f);
+        //modelMatrix=glm::translate(modelMatrix,glm::vec3(map.entities[9].x*TILE_SIZE,map.entities[9].y*-TILE_SIZE,0.0f));
+        modelMatrix=glm::translate(modelMatrix,position);
+        modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        
+        glDisableVertexAttribArray(program.positionAttribute);
+        glDisableVertexAttribArray(program.texCoordAttribute);
+    }
+    
+    void update(float elapsed){
+        
+        velocity.y += acceleration.y * elapsed;
+        position.y+=velocity.y*elapsed;
+        
+        if(entityType==PLAYER){
+
+            
+            if (keys[SDL_SCANCODE_UP]){
+                velocity.y+=2*TILE_SIZE;
+            }
+            checkCollisionMap();
+        }
+        
+
+        
+        
+    }
+    
+    EntityType entityType;
+    
+    glm::vec3 position;
+    glm::vec3 tilePos;
+    glm::vec3 size=glm::vec3(1.0*TILE_SIZE);
+    glm::vec3 velocity=glm::vec3(0.0f,0.0f,0.0f);
+    glm::vec3 acceleration=glm::vec3(0.0f,-0.5f*TILE_SIZE,0.0f);
+    
+    
+    
+    int index;
+    
+private:
+    
+    bool checkCollisionMap(){
+        int gridX = (int)(position.x / TILE_SIZE);
+        int gridY = (int)(position.y/(-TILE_SIZE));
+        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+            float penetration=fabs((-TILE_SIZE*gridY)-(position.y-size.y/2));
+            position.y+=penetration;
+            velocity.y=0;
+        }
+        return true;
+    }
+    
+};
 
 
 GLuint LoadTexture(const char *filePath) {
@@ -62,6 +167,25 @@ GLuint LoadTexture(const char *filePath) {
     return retTexture;
 }
 
+void convertFlareEntity(){
+    
+    for (FlareMapEntity& someEntity:map.entities){
+        float xPos=someEntity.x*TILE_SIZE;
+        float yPos=someEntity.y*-TILE_SIZE;
+        Entity newEntity;
+        newEntity.position=glm::vec3(xPos,yPos,0.0f);
+        if (someEntity.type=="ENEMY"){
+            newEntity.entityType=ENEMY;
+            newEntity.index=80;
+        }else if(someEntity.type=="PLAYER"){
+            newEntity.entityType=PLAYER;
+            newEntity.index=99;
+        }
+        entities.push_back(newEntity);
+    }
+    
+};
+
 void setUp(){
     SDL_Init(SDL_INIT_VIDEO);
     displayWindow = SDL_CreateWindow("Mario Clone", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
@@ -74,6 +198,7 @@ void setUp(){
 
     //intial set-up
     glViewport(0,0,640,360);
+    
     
     //loads textured file in program
     program.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER"fragment_textured.glsl");
@@ -102,10 +227,7 @@ void setUp(){
     map.Load(RESOURCE_FOLDER"marioClone.txt");
     mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
     characters=LoadTexture(RESOURCE_FOLDER"arne_sprites.png");
-
-    
-
-    
+    convertFlareEntity();
 }
 
 void renderMap(){
@@ -142,7 +264,6 @@ void renderMap(){
         }
     }
     
-    
     glBindTexture(GL_TEXTURE_2D, mineCraft);
     
     glm::mat4 modelMatrix=glm::mat4(1.0f);
@@ -160,61 +281,27 @@ void renderMap(){
 }
 
 
-
-
-
-void renderCharacters(){
-    
-    int index=76;
-    //map.entities[9].position=glm::vec3(x/)
-    
-    
-    float xPos=map.entities[9].x*TILE_SIZE;
-    float yPos=map.entities[9].y*-TILE_SIZE;
-
-    glm::vec3 position=glm::vec3(xPos,yPos,0.0f);
-    
-    float u = (float)(((int)index) % SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_X;
-    float v = (float)(((int)index) / SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_Y;
-    float spriteWidth = 1.0/(float)SPRITE_CHARACTER_COUNT_X;
-    float spriteHeight = 1.0/(float)SPRITE_CHARACTER_COUNT_Y;
-    float texCoords[] = {
-        u, v+spriteHeight,
-        u+spriteWidth, v,
-        u, v,
-        u+spriteWidth, v,
-        u, v+spriteHeight,
-        u+spriteWidth, v+spriteHeight
-    };
-    
-    float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f,  -0.5f,
-        -0.5f, 0.5f, -0.5f};
-    
-    glBindTexture(GL_TEXTURE_2D, characters);
-    
-    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
-    glEnableVertexAttribArray(program.positionAttribute);
-    
-    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
-    glEnableVertexAttribArray(program.texCoordAttribute);
-    
-    modelMatrix=glm::mat4(1.0f);
-    //modelMatrix=glm::translate(modelMatrix,glm::vec3(map.entities[9].x*TILE_SIZE,map.entities[9].y*-TILE_SIZE,0.0f));
-    modelMatrix=glm::translate(modelMatrix,position);
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    
-    glDisableVertexAttribArray(program.positionAttribute);
-    glDisableVertexAttribArray(program.texCoordAttribute);
+void renderGameLevel(){
+    renderMap();
+    for (Entity& someEntity:entities){
+        someEntity.render();
+    }
 }
 
+void update(float elapsed){
+    for (Entity& someEntity:entities){
+        someEntity.update(elapsed);
+    }
+}
 
 int main(int argc, char *argv[])
 {
     
     setUp();
+    renderGameLevel();
+
+    float accumulator = 0.0f;
+    float lastFrameTicks=0.0f;
     
     SDL_Event event;
     bool done = false;
@@ -226,10 +313,33 @@ int main(int argc, char *argv[])
         }
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(144/255.0, 221/255.0, 223/255.0, 1.0f);
-        renderMap();
-        renderCharacters();
+        
+        //game tick system
+        float ticks=(float)SDL_GetTicks()/1000.0f;
+        float elapsed=ticks-lastFrameTicks;
+        lastFrameTicks=ticks;
+        
+        //better collision system with Fixed timestep
+        elapsed += accumulator;
+        if(elapsed < FIXED_TIMESTEP) {
+            accumulator = elapsed;
+            continue; }
+        
+        while(elapsed >= FIXED_TIMESTEP) {
+            update(FIXED_TIMESTEP);
+            elapsed -= FIXED_TIMESTEP;
+        }
+        accumulator = elapsed;
+        
+        renderGameLevel();
+
+        
+        
+        
+        
+        
         viewMatrix = glm::mat4(1.0f);
-        viewMatrix=glm::translate(viewMatrix,glm::vec3(-1.0f,0.75f,1.0f));
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(-entities[9].position.x,0.75f,0.0f));
         program.SetViewMatrix(viewMatrix);
         
         
