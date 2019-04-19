@@ -26,6 +26,10 @@
 #define SPRITE_CHARACTER_COUNT_Y 8
 #define FIXED_TIMESTEP 0.0166666f
 #define TILE_SIZE 1/16.0f
+#define CAMERA_X_ADJUST 1.3f
+#define CAMERA_Y_ADJUST 0.45f
+#define MAX_RIGHT_CAMERA 4.92f
+#define MAX_LEFT_CAMERA 0.479
 
 using namespace std;
 
@@ -42,20 +46,20 @@ const Uint8 *keys=SDL_GetKeyboardState(NULL);
 //initialize textsheet
 GLuint characters;
 GLuint mineCraft;
-int countX=0;
+// initialize matrix
+glm::mat4 modelMatrix = glm::mat4(1.0f);
+glm::mat4 viewMatrix = glm::mat4(1.0f);
+// initialze map
+FlareMap map;
 
 
 
 
 
 class Entity;
-
-glm::mat4 modelMatrix = glm::mat4(1.0f);
-glm::mat4 viewMatrix = glm::mat4(1.0f);
-
-// initialze map
-FlareMap map;
 std::vector <Entity> entities;
+
+
 
 float lerp(float v0, float v1, float t) {
     return (1.0-t)*v0 + t*v1;
@@ -92,9 +96,14 @@ public:
         glEnableVertexAttribArray(program.texCoordAttribute);
         
         modelMatrix=glm::mat4(1.0f);
-        //modelMatrix=glm::translate(modelMatrix,glm::vec3(map.entities[9].x*TILE_SIZE,map.entities[9].y*-TILE_SIZE,0.0f));
         modelMatrix=glm::translate(modelMatrix,position);
-        modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+        
+        // render the character model to face the right direction
+        if (faceLeftFlag){
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
+        }else{
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+        }
         program.SetModelMatrix(modelMatrix);
         
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -102,52 +111,109 @@ public:
         glDisableVertexAttribArray(program.positionAttribute);
         glDisableVertexAttribArray(program.texCoordAttribute);
     }
-    
+
     void update(float elapsed){
         
-        velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
-        velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
-        
+        // gravity affecting all entities
         velocity.y += gravity.y * elapsed;
         
         if(entityType==PLAYER){
+        
+            // check collision against other entioties
+            for (int i=0;i<9;i++){
+                if(checkEntityCollision(entities[i])){
+                    if ((position.y - entities[i].position.y) > size.y/2*TILE_SIZE){
+                        entities[i].position.x=100.0f;
+                    }else{
+                        restart();
+                    }
+                }
+            }
+            
+            // friction
+            velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
+            velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
+            
             if (keys[SDL_SCANCODE_UP] && botFlag){
+                //only jump if botFlag is set
                 velocity.y+=30.0f*elapsed;
             }
             if (keys[SDL_SCANCODE_RIGHT]){
                 velocity.x+=0.5f*elapsed;
+                faceLeftFlag=false;
             }
             if (keys[SDL_SCANCODE_LEFT]){
                 velocity.x-=0.5f*elapsed;
+                faceLeftFlag=true;
             }
+            
+            position.x+=velocity.x*elapsed;
         }
         
         
         else if(entityType==ENEMY){
+            // enemies have a timer based movement system. Didn't have time to code a system based on collision
+            cout<<timer<<endl;
+            if (timer<=0){
+                Enemyvelocity.x=-Enemyvelocity.x;
+                timer=1.5f;
+                faceLeftFlag=!faceLeftFlag;
+            }
+            position.x+=Enemyvelocity.x*elapsed;
+            timer-=elapsed;
         }
-        position.x+=velocity.x*elapsed;
+        
         position.y+=velocity.y*elapsed;
+        checkAllCollisionMap();
+        
+    }
+    
+    void restart(){
+        // restart the game by resetting everyone's position to starting position
+        for (Entity& someEntity:entities){
+            someEntity.position=someEntity.startingPos;
+        }
+    }
+    
+    void checkAllCollisionMap(){
+        // checks all collisiona against "solid" tile maps
+        int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
+        // detect if you fall  into "death tiles" which is any tile greater than 18
 
+        if (gridY>18 && entityType==PLAYER){
+            position=startingPos;
+            restart();
+        }
         checkBotCollisionMap();
         checkTopCollisionMap();
         checkRightCollisionMap();
         checkLeftCollisionMap();
-        
+    }
+    
+    bool checkEntityCollision( const Entity& someEntity){
+        float yCollide=abs(position.y-someEntity.position.y)-((size.y/2+someEntity.size.y/2)*TILE_SIZE);
+        float xCollide=abs(position.x-someEntity.position.x)-((size.x/2+someEntity.size.x/2)*TILE_SIZE);
+        return (xCollide<=0.0f && yCollide<=0.0f);
     }
     
     EntityType entityType;
     
     glm::vec3 position;
+    glm::vec3 startingPos;
     glm::vec3 tilePos;
     glm::vec3 size=glm::vec3(1.0f);
     glm::vec3 velocity=glm::vec3(0.0f,0.0f,0.0f);
+    // wanted another velocity for enemies only so player dont have starting velocity as well
+    glm::vec3 Enemyvelocity=glm::vec3(0.1f,0.0f,0.0f);
     glm::vec3 gravity=glm::vec3(0.0f,-0.5f,0.0f);
     glm::vec3 friction=glm::vec3(1.0f,0.0f,0.0f);
     
+    float timer=1.5f;
     bool topFlag=false;
     bool botFlag=false;
     bool leftFlag=false;
     bool rightFlag=false;
+    bool faceLeftFlag=false;
     
     int spriteIndex;
     
@@ -156,7 +222,7 @@ private:
     void checkBotCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE));
         int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
-        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
             float penetration=fabs(((-TILE_SIZE*gridY)-(position.y-(size.y/2)*TILE_SIZE)));
             position.y+=penetration;
             velocity.y=0;
@@ -169,8 +235,9 @@ private:
     void checkTopCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE));
         int gridY = (int)(position.y/(-TILE_SIZE)-size.y/2);
-        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
             float penetration=fabs(((-TILE_SIZE*gridY)-(position.y+(size.y/2)*TILE_SIZE)));
+            // needed a little bit more to completely adjust penetration without stuttering camera movement
             penetration-=0.05;
             position.y-=penetration;
             velocity.y=0;
@@ -183,7 +250,7 @@ private:
     void checkRightCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE) + size.y/2);
         int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
             float penetration=fabs(((TILE_SIZE*gridX)-position.x-(size.x/2)*TILE_SIZE));
             position.x-=penetration;
             rightFlag=true;
@@ -196,12 +263,9 @@ private:
     void checkLeftCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE) - size.y/2);
         int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
             float penetration=fabs(((TILE_SIZE*gridX)-position.x+(size.x/2)*TILE_SIZE));
             penetration-=0.06f;
-            float test= 0.05f;
-            cout<<"COLLIDED"<<"----"<<penetration<<"-----"<<gridX<<endl;
-            countX++;
             position.x+=penetration;
             leftFlag=true;
             velocity.x=0;
@@ -233,7 +297,7 @@ GLuint LoadTexture(const char *filePath) {
 }
 
 void convertFlareEntity(){
-    
+    // converts flare map entity to in-game entity.
     for (FlareMapEntity& someEntity:map.entities){
         float xPos=someEntity.x*TILE_SIZE;
         float yPos=someEntity.y*-TILE_SIZE;
@@ -246,6 +310,7 @@ void convertFlareEntity(){
             newEntity.entityType=PLAYER;
             newEntity.spriteIndex=99;
         }
+        newEntity.startingPos=newEntity.position;
         entities.push_back(newEntity);
     }
     
@@ -253,7 +318,7 @@ void convertFlareEntity(){
 
 void setUp(){
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("Mario Clone", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Mario Clone", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 576, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
     
@@ -262,7 +327,7 @@ void setUp(){
 #endif
 
     //intial set-up
-    glViewport(0,0,640,360);
+    glViewport(0,0,1024,576);
     
     
     //loads textured file in program
@@ -302,13 +367,12 @@ void renderMap(){
     
     for(int y=0; y < LEVEL_HEIGHT; y++) {
         for(int x=0; x < LEVEL_WIDTH; x++) {
-            // Wanted to draw "0" as invisible tiles instead of the zero index without changing the actual mapData for later usage
-            int index=map.mapData[y][x];
-            if (index==0){
-                index=704;
+            // 0 on my sprite sheet was a lava tile so I had to change the tile to an invisible tile since Tiles defaults invisible tile to 0
+            if (map.mapData[y][x]==0){
+                map.mapData[y][x]=704;
             }
-                float u = (float)(((int)index) % SPRITE_COUNT_X) / (float) SPRITE_COUNT_X;
-                float v = (float)(((int)index) / SPRITE_COUNT_X) / (float) SPRITE_COUNT_Y;
+                float u = (float)(((int)map.mapData[y][x]) % SPRITE_COUNT_X) / (float) SPRITE_COUNT_X;
+                float v = (float)(((int)map.mapData[y][x]) / SPRITE_COUNT_X) / (float) SPRITE_COUNT_Y;
                 float spriteWidth = 1.0f/(float)SPRITE_COUNT_X;
                 float spriteHeight = 1.0f/(float)SPRITE_COUNT_Y;
                 vertexData.insert(vertexData.end(), {
@@ -361,6 +425,23 @@ void update(float elapsed){
     }
 }
 
+void cameraMovement(){
+    viewMatrix = glm::mat4(1.0f);
+    // wanted the camera to stop moving if it reaches a certain x position but still allow character to still move
+    // the CAMERA_ADJUST values are to make the camera frame better so it doesn't show too much empty space on bottom
+    if (entities[9].position.x > MAX_LEFT_CAMERA && entities[9].position.x<MAX_RIGHT_CAMERA){
+        viewMatrix=glm::translate(viewMatrix,-entities[9].position);
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(-CAMERA_X_ADJUST,-CAMERA_Y_ADJUST,0.0f));
+    }else if (entities[9].position.x <MAX_LEFT_CAMERA){
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(-MAX_LEFT_CAMERA,-entities[9].position.y,0.0f));
+        viewMatrix=glm::translate(viewMatrix,glm::vec3((-CAMERA_X_ADJUST),(-CAMERA_Y_ADJUST),0.0f));
+    }else if (entities[9].position.x >MAX_RIGHT_CAMERA){
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(-MAX_RIGHT_CAMERA,-entities[9].position.y,0.0f));
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(-CAMERA_X_ADJUST,-CAMERA_Y_ADJUST,0.0f));
+    }
+    program.SetViewMatrix(viewMatrix);
+}
+
 int main(int argc, char *argv[])
 {
     
@@ -379,6 +460,7 @@ int main(int argc, char *argv[])
             }
         }
         glClear(GL_COLOR_BUFFER_BIT);
+        //background as skyblue
         glClearColor(144/255.0, 221/255.0, 223/255.0, 1.0f);
         
         //game tick system
@@ -399,25 +481,7 @@ int main(int argc, char *argv[])
         accumulator = elapsed;
         
         renderGameLevel();
-
-        
-        
-        
-        
-        
-        viewMatrix = glm::mat4(1.0f);
-        //viewMatrix=glm::translate(viewMatrix,glm::vec3(-entities[9].position.x,0.75f,0.0f));
-        viewMatrix=glm::translate(viewMatrix,-entities[9].position);
-        program.SetViewMatrix(viewMatrix);
-        
-        
-        
-        
-        
-        
-        
-       
-        
+        cameraMovement();
         SDL_GL_SwapWindow(displayWindow);
     }
     
