@@ -67,8 +67,8 @@ class Entity{
 public:
     
     void render(){
-        float u = (float)(((int)index) % SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_X;
-        float v = (float)(((int)index) / SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_Y;
+        float u = (float)(((int)spriteIndex) % SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_X;
+        float v = (float)(((int)spriteIndex) / SPRITE_CHARACTER_COUNT_X) / (float) SPRITE_CHARACTER_COUNT_Y;
         float spriteWidth = 1.0/(float)SPRITE_CHARACTER_COUNT_X;
         float spriteHeight = 1.0/(float)SPRITE_CHARACTER_COUNT_Y;
         float texCoords[] = {
@@ -105,20 +105,33 @@ public:
     
     void update(float elapsed){
         
-        velocity.y += acceleration.y * elapsed;
-        position.y+=velocity.y*elapsed;
+        velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
+        velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
+        
+        velocity.y += gravity.y * elapsed;
         
         if(entityType==PLAYER){
-
-            
-            if (keys[SDL_SCANCODE_UP]){
-                velocity.y+=2*TILE_SIZE;
+            if (keys[SDL_SCANCODE_UP] && botFlag){
+                velocity.y+=30.0f*elapsed;
             }
-            checkCollisionMap();
+            if (keys[SDL_SCANCODE_RIGHT]){
+                velocity.x+=0.5f*elapsed;
+            }
+            if (keys[SDL_SCANCODE_LEFT]){
+                velocity.x-=0.5f*elapsed;
+            }
         }
         
-
         
+        else if(entityType==ENEMY){
+        }
+        position.x+=velocity.x*elapsed;
+        position.y+=velocity.y*elapsed;
+
+        checkBotCollisionMap();
+        checkTopCollisionMap();
+        checkRightCollisionMap();
+        checkLeftCollisionMap();
         
     }
     
@@ -126,26 +139,78 @@ public:
     
     glm::vec3 position;
     glm::vec3 tilePos;
-    glm::vec3 size=glm::vec3(1.0*TILE_SIZE);
+    glm::vec3 size=glm::vec3(1.0f);
     glm::vec3 velocity=glm::vec3(0.0f,0.0f,0.0f);
-    glm::vec3 acceleration=glm::vec3(0.0f,-0.5f*TILE_SIZE,0.0f);
+    glm::vec3 gravity=glm::vec3(0.0f,-0.5f,0.0f);
+    glm::vec3 friction=glm::vec3(1.0f,0.0f,0.0f);
     
+    bool topFlag=false;
+    bool botFlag=false;
+    bool leftFlag=false;
+    bool rightFlag=false;
     
-    
-    int index;
+    int spriteIndex;
     
 private:
     
-    bool checkCollisionMap(){
-        int gridX = (int)(position.x / TILE_SIZE);
-        int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
-            float penetration=fabs((-TILE_SIZE*gridY)-(position.y-size.y/2));
+    void checkBotCollisionMap(){
+        int gridX = (int) (position.x / (TILE_SIZE));
+        int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
+        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+            float penetration=fabs(((-TILE_SIZE*gridY)-(position.y-(size.y/2)*TILE_SIZE)));
             position.y+=penetration;
             velocity.y=0;
+            botFlag=true;
+        }else{
+            botFlag=false;
         }
-        return true;
     }
+    
+    void checkTopCollisionMap(){
+        int gridX = (int) (position.x / (TILE_SIZE));
+        int gridY = (int)(position.y/(-TILE_SIZE)-size.y/2);
+        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+            float penetration=fabs(((-TILE_SIZE*gridY)-(position.y+(size.y/2)*TILE_SIZE)));
+            penetration-=0.05;
+            position.y-=penetration;
+            velocity.y=0;
+            topFlag=true;
+        }else{
+            topFlag=false;
+        }
+    }
+    
+    void checkRightCollisionMap(){
+        int gridX = (int) (position.x / (TILE_SIZE) + size.y/2);
+        int gridY = (int)(position.y/(-TILE_SIZE));
+        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+            float penetration=fabs(((TILE_SIZE*gridX)-position.x-(size.x/2)*TILE_SIZE));
+            position.x-=penetration;
+            rightFlag=true;
+            velocity.x=0;
+        }else{
+            rightFlag=false;
+        }
+    }
+    
+    void checkLeftCollisionMap(){
+        int gridX = (int) (position.x / (TILE_SIZE) - size.y/2);
+        int gridY = (int)(position.y/(-TILE_SIZE));
+        if (map.mapData[gridY][gridX]!=0 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+            float penetration=fabs(((TILE_SIZE*gridX)-position.x+(size.x/2)*TILE_SIZE));
+            penetration-=0.06f;
+            float test= 0.05f;
+            cout<<"COLLIDED"<<"----"<<penetration<<"-----"<<gridX<<endl;
+            countX++;
+            position.x+=penetration;
+            leftFlag=true;
+            velocity.x=0;
+        }else{
+            leftFlag=false;
+        }
+    }
+    
+
     
 };
 
@@ -176,10 +241,10 @@ void convertFlareEntity(){
         newEntity.position=glm::vec3(xPos,yPos,0.0f);
         if (someEntity.type=="ENEMY"){
             newEntity.entityType=ENEMY;
-            newEntity.index=80;
+            newEntity.spriteIndex=80;
         }else if(someEntity.type=="PLAYER"){
             newEntity.entityType=PLAYER;
-            newEntity.index=99;
+            newEntity.spriteIndex=99;
         }
         entities.push_back(newEntity);
     }
@@ -237,11 +302,13 @@ void renderMap(){
     
     for(int y=0; y < LEVEL_HEIGHT; y++) {
         for(int x=0; x < LEVEL_WIDTH; x++) {
-            if (map.mapData[y][x]==0){
-                map.mapData[y][x]=704;
+            // Wanted to draw "0" as invisible tiles instead of the zero index without changing the actual mapData for later usage
+            int index=map.mapData[y][x];
+            if (index==0){
+                index=704;
             }
-                float u = (float)(((int)map.mapData[y][x]) % SPRITE_COUNT_X) / (float) SPRITE_COUNT_X;
-                float v = (float)(((int)map.mapData[y][x]) / SPRITE_COUNT_X) / (float) SPRITE_COUNT_Y;
+                float u = (float)(((int)index) % SPRITE_COUNT_X) / (float) SPRITE_COUNT_X;
+                float v = (float)(((int)index) / SPRITE_COUNT_X) / (float) SPRITE_COUNT_Y;
                 float spriteWidth = 1.0f/(float)SPRITE_COUNT_X;
                 float spriteHeight = 1.0f/(float)SPRITE_COUNT_Y;
                 vertexData.insert(vertexData.end(), {
@@ -339,7 +406,8 @@ int main(int argc, char *argv[])
         
         
         viewMatrix = glm::mat4(1.0f);
-        viewMatrix=glm::translate(viewMatrix,glm::vec3(-entities[9].position.x,0.75f,0.0f));
+        //viewMatrix=glm::translate(viewMatrix,glm::vec3(-entities[9].position.x,0.75f,0.0f));
+        viewMatrix=glm::translate(viewMatrix,-entities[9].position);
         program.SetViewMatrix(viewMatrix);
         
         
