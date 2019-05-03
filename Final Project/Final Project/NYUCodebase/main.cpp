@@ -25,6 +25,8 @@
 #define SPRITE_COUNT_Y 32
 #define FIXED_TIMESTEP 0.0166666f
 #define TILE_SIZE 1/16.0f
+#define THREE_TEXT_OFFSET 0.05f
+#define TWO_TEXT_OFFSET 0.030f
 
 
 using namespace std;
@@ -42,11 +44,15 @@ const Uint8 *keys=SDL_GetKeyboardState(NULL);
 //initialize textsheet
 GLuint characters;
 GLuint mineCraft;
+GLuint font;
 // initialize matrix
 glm::mat4 modelMatrix = glm::mat4(1.0f);
 glm::mat4 viewMatrix = glm::mat4(1.0f);
 // initialze map
 FlareMap map;
+// initialize who's turn it is
+int turnIndex=0;
+
 
 
 class SheetSprite;
@@ -111,80 +117,137 @@ void SheetSprite::Draw() {
     glDisableVertexAttribArray(program.texCoordAttribute);
 }
 
+void DrawText(int fontTexture, std::string text, float size, float spacing) {
+    float character_size = 1.0/16.0f;
+    std::vector<float> vertexData;
+    std::vector<float> texCoordData;
+    for(int i=0; i < text.size(); i++) {
+        int spriteIndex = (int)text[i];
+        float texture_x = (float)(spriteIndex % 16) / 16.0f;
+        float texture_y = (float)(spriteIndex / 16) / 16.0f;
+        vertexData.insert(vertexData.end(), {
+            ((size+spacing) * i) + (-0.5f * size), 0.5f * size,
+            ((size+spacing) * i) + (-0.5f * size), -0.5f * size,
+            ((size+spacing) * i) + (0.5f * size), 0.5f * size,
+            ((size+spacing) * i) + (0.5f * size), -0.5f * size,
+            ((size+spacing) * i) + (0.5f * size), 0.5f * size,
+            ((size+spacing) * i) + (-0.5f * size), -0.5f * size,
+        });
+        texCoordData.insert(texCoordData.end(), {
+            texture_x, texture_y,
+            texture_x, texture_y + character_size,
+            texture_x + character_size, texture_y,
+            texture_x + character_size, texture_y + character_size,
+            texture_x + character_size, texture_y,
+            texture_x, texture_y + character_size,
+        }); }
+    glBindTexture(GL_TEXTURE_2D, fontTexture);
+    // draw this data (use the .data() method of std::vector to get pointer to data)
+    // draw this yourself, use text.size() * 6 or vertexData.size()/2 to get number of vertices
+    
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
+    glEnableVertexAttribArray(program.positionAttribute);
+    
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoordData.data());
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    glDrawArrays(GL_TRIANGLES, 0, 6*text.size());
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+}
+
 
 enum EntityType {ENEMY,PLAYER};
 class Entity{
 public:
     
     void render(){
-        modelMatrix = glm::mat4(1.0f);
-        modelMatrix=glm::translate(modelMatrix,position);
-        if (faceLeftFlag){
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
-        }else{
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
-        }
-        program.SetModelMatrix(modelMatrix);
-        sprite.Draw();
+        if (aliveFlag){
+            modelMatrix = glm::mat4(1.0f);
+            modelMatrix=glm::translate(modelMatrix,position);
+            if (faceLeftFlag){
+                modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
+            }else{
+                modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+            }
+            program.SetModelMatrix(modelMatrix);
+            sprite.Draw();
+            
 
+            string hpString=std::to_string(hp);
+            glm::mat4 modelMatrix = glm::mat4(1.0f);
+            modelMatrix=glm::translate(modelMatrix,position);
+            if (hpString.size()==3){
+                modelMatrix=glm::translate(modelMatrix,glm::vec3((-THREE_TEXT_OFFSET),0.075f,0.0f));
+            }else if (hpString.size()==2){
+                modelMatrix=glm::translate(modelMatrix,glm::vec3((-TWO_TEXT_OFFSET),0.075f,0.0f));
+            }else{
+                modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0f,0.075f,0.0f));
+            }
+            program.SetModelMatrix(modelMatrix);
+            DrawText(font, hpString, TILE_SIZE, 0.0005);
+        }
     }
 
     void update(float elapsed){
         
-        // gravity affecting all entities
-        velocity.y += gravity.y * elapsed;
-        
-
-        
-        // check collision against other entioties
-        for (int i=0;i<9;i++){
-            if(checkEntityCollision(entities[i])){
-                if ((position.y - entities[i].position.y) > size.y/2*TILE_SIZE){
-                    entities[i].position.x=100.0f;
+        if (aliveFlag){
+            // gravity affecting all entities
+            velocity.y += gravity.y * elapsed;
+            
+            // check collision against other entioties
+            for (int i=0;i<9;i++){
+                if(checkEntityCollision(entities[i])){
+                    if ((position.y - entities[i].position.y) > size.y/2*TILE_SIZE){
+                        //entities[i].position.x=100.0f;
+                    }
                 }
             }
-        }
             
-        // friction
-        velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
-        velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
+            // friction
+            velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
+            velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
             
-        if (keys[SDL_SCANCODE_UP] && botFlag){
-            //only jump if botFlag is set
-            velocity.y+=30.0f*elapsed;
-        }
-        if (keys[SDL_SCANCODE_RIGHT]){
-            velocity.x+=0.5f*elapsed;
-            faceLeftFlag=false;
-        }
-        
-        if (keys[SDL_SCANCODE_LEFT]){
-            velocity.x-=0.5f*elapsed;
-            faceLeftFlag=true;
-        }
-        
-        //position updates
-        position.y+=velocity.y*elapsed;
-        checkYCollisionMap();
-        position.x+=velocity.x*elapsed;
-        checkXCollisionMap();
-        
-        
-        //moving animation stuff
-        animationElapsed += elapsed;
-        if(animationElapsed > 1.0/framesPerSecond) {
-            index++;
-            animationElapsed = 0.0;
-            if(index > 3) {
-                index = 0;
+
+            if (&entities[turnIndex]==this){
+                if (keys[SDL_SCANCODE_UP] && botFlag){
+                    //only jump if botFlag is set
+                    velocity.y+=30.0f*elapsed;
+                }
+                if (keys[SDL_SCANCODE_RIGHT]){
+                    velocity.x+=0.5f*elapsed;
+                    faceLeftFlag=false;
+                }
+                
+                if (keys[SDL_SCANCODE_LEFT]){
+                    velocity.x-=0.5f*elapsed;
+                    faceLeftFlag=true;
+                }
             }
-        }
-        if (abs(velocity.x)<=0.025){
-            index=1;
-        }
-        sprite=*((*modelAnimation)[index]);
-        
+            
+            //position updates
+            position.y+=velocity.y*elapsed;
+            checkYCollisionMap();
+            position.x+=velocity.x*elapsed;
+            checkXCollisionMap();
+            
+            
+            //moving animation stuff
+            animationElapsed += elapsed;
+            if(animationElapsed > 1.0/framesPerSecond) {
+                index++;
+                animationElapsed = 0.0;
+                if(index > 3) {
+                    index = 0;
+                }
+            }
+            if (abs(velocity.x)<=0.025){
+                index=1;
+            }
+            sprite=*((*modelAnimation)[index]);
+            }
     }
+
     
     
     void checkYCollisionMap(){
@@ -217,6 +280,9 @@ public:
     // wanted another velocity for enemies only so player dont have starting velocity as well
     glm::vec3 gravity=glm::vec3(0.0f,-0.5f,0.0f);
     glm::vec3 friction=glm::vec3(1.0f,0.0f,0.0f);
+    
+    int hp=100;
+    bool aliveFlag=true;
 
     bool topFlag=false;
     bool botFlag=false;
@@ -229,7 +295,9 @@ private:
     void checkBotCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE));
         int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
-        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+            aliveFlag=false;
+        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((-TILE_SIZE*gridY)-(position.y-(size.y/2)*TILE_SIZE)));
             position.y+=penetration;
             velocity.y=0;
@@ -242,9 +310,11 @@ private:
     void checkTopCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE));
         int gridY = (int)(position.y/(-TILE_SIZE)-size.y/2);
-        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+            aliveFlag=false;
+        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((-TILE_SIZE*gridY)-(position.y+(size.y/2)*TILE_SIZE)));
-            // needed a little bit more to completely adjust penetration without stuttering camera movement
+            // needed a little bit more to completely resolve penetration without stuttering camera movement
             penetration-=0.05;
             position.y-=penetration;
             velocity.y=0;
@@ -257,7 +327,9 @@ private:
     void checkRightCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE) + size.y/2);
         int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+            aliveFlag=false;
+        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((TILE_SIZE*gridX)-position.x-(size.x/2)*TILE_SIZE));
             position.x-=penetration;
             rightFlag=true;
@@ -270,7 +342,9 @@ private:
     void checkLeftCollisionMap(){
         int gridX = (int) (position.x / (TILE_SIZE) - size.y/2);
         int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=130 && map.mapData[gridY][gridX]!=204 ){
+        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+            aliveFlag=false;
+        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((TILE_SIZE*gridX)-position.x+(size.x/2)*TILE_SIZE));
             penetration-=0.06f;
             position.x+=penetration;
@@ -303,13 +377,17 @@ void convertFlareEntity(){
 void randomSpawn(){
     //generate 4 player
     srand(time(0));
+    vector <int> positions;
     for (int i=0;i<4;i++){
         //random x position
         int randomX=((rand())%39)+8;
+        // dont want duplicate x positions for spawns
+        while (find(positions.begin(),positions.end(),randomX)!=positions.end()){
+            randomX=((rand())%39)+8;
+        }
+        positions.push_back(randomX);
         // random to choose probe from top to bot or bot to top
         int randomTop=(rand())%2;
-        cout<<randomX<<endl;
-
         if (randomTop<5){
             for (int i=3;i<LEVEL_HEIGHT;i++){
                 if(map.mapData[i][randomX]!=704 && map.mapData[i][randomX]!=203 && map.mapData[i][randomX]!=1 && map.mapData[i][randomX]!=35 && map.mapData[i][randomX]!=257 ){
@@ -445,6 +523,7 @@ void setUp(){
     map.Load(RESOURCE_FOLDER"level1.txt");
     mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
     characters=LoadTexture(RESOURCE_FOLDER"sprites.png");
+    font=LoadTexture(RESOURCE_FOLDER"font2.png");
     renderMap();
     
     SheetSprite* model_1_1 = new SheetSprite(characters,0.0f/32.0f, 16.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
@@ -459,11 +538,6 @@ void setUp(){
     randomSpawn();
     
 }
-
-
-
-
-
 
 void renderGameLevel(){
     renderMap();
@@ -480,20 +554,16 @@ void update(float elapsed){
 
 void cameraMovement(){
     viewMatrix = glm::mat4(1.0f);
-    int index=0;
     if (keys[SDL_SCANCODE_1]){
-        index=1;
+        turnIndex=1;
     }
     if (keys[SDL_SCANCODE_2]){
-        index=2;
+        turnIndex=2;
     }
     if (keys[SDL_SCANCODE_3]){
-        index=3;
+        turnIndex=3;
     }
-
-
-    
-    viewMatrix=glm::translate(viewMatrix,-entities[index].position);
+    viewMatrix=glm::translate(viewMatrix,-entities[turnIndex].position);
     program.SetViewMatrix(viewMatrix);
 }
 
@@ -505,6 +575,7 @@ int main(int argc, char *argv[])
 
     float accumulator = 0.0f;
     float lastFrameTicks=0.0f;
+    float turnTimer=15.0f;
     
     SDL_Event event;
     bool done = false;
@@ -531,6 +602,21 @@ int main(int argc, char *argv[])
         
         while(elapsed >= FIXED_TIMESTEP) {
             update(FIXED_TIMESTEP);
+            cout<<turnTimer<<endl;
+            if (turnTimer<=0.0f){
+                turnTimer=15.0f;
+                turnIndex++;
+                if (turnIndex==4){
+                    turnIndex=0;
+                }
+                while (!entities[turnIndex].aliveFlag){
+                    if (turnIndex==4){
+                        turnIndex=0;
+                    }
+                    turnIndex++;
+                }
+            }
+            turnTimer-=FIXED_TIMESTEP;
             elapsed -= FIXED_TIMESTEP;
         }
         accumulator = elapsed;

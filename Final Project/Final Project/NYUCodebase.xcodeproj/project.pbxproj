@@ -23,6 +23,7 @@
 		CFA2CEF5227A7073006EF152 /* level1.txt in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEF4227A7073006EF152 /* level1.txt */; };
 		CFA2CEF9227A77E5006EF152 /* sprites.png in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEF8227A77E5006EF152 /* sprites.png */; };
 		CFA2CEFB227A82A2006EF152 /* sprites.xml in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEFA227A82A2006EF152 /* sprites.xml */; };
+		CFA2CEFD227B288D006EF152 /* font2.png in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEFC227B288D006EF152 /* font2.png */; };
 		CFDF75AB2263FAD900FAF20D /* FlareMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CFDF75A92263FAD800FAF20D /* FlareMap.cpp */; };
 		CFDF75B5226420A900FAF20D /* minecraft_Sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */; };
 /* End PBXBuildFile section */
@@ -49,6 +50,7 @@
 		CFA2CEF4227A7073006EF152 /* level1.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = level1.txt; path = ../../../Downloads/level1.txt; sourceTree = "<group>"; };
 		CFA2CEF8227A77E5006EF152 /* sprites.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = sprites.png; path = "../../../Downloads/topdown_shooter 2/Final Characters Model/Done/sprites.png"; sourceTree = "<group>"; };
 		CFA2CEFA227A82A2006EF152 /* sprites.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = sprites.xml; path = "../../../Downloads/topdown_shooter 2/Final Characters Model/Done/sprites.xml"; sourceTree = "<group>"; };
+		CFA2CEFC227B288D006EF152 /* font2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = font2.png; path = ../../../CS3113/assets/fonts/font2.png; sourceTree = "<group>"; };
 		CFDF75A92263FAD800FAF20D /* FlareMap.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FlareMap.cpp; sourceTree = "<group>"; };
 		CFDF75AA2263FAD900FAF20D /* FlareMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlareMap.h; sourceTree = "<group>"; };
 		CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = minecraft_Sprite.png; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 				CFDF75A92263FAD800FAF20D /* FlareMap.cpp */,
 				CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */,
 				CFA2CEF8227A77E5006EF152 /* sprites.png */,
+				CFA2CEFC227B288D006EF152 /* font2.png */,
 				CFA2CEFA227A82A2006EF152 /* sprites.xml */,
 				6D5A86B919AE5C710066C1FD /* main.cpp */,
 			);
@@ -209,6 +212,7 @@
 				CFA2CEF9227A77E5006EF152 /* sprites.png in Resources */,
 				6DC7076A1BA7273500225B7D /* vertex_textured.glsl in Resources */,
 				CFA2CEF5227A7073006EF152 /* level1.txt in Resources */,
+				CFA2CEFD227B288D006EF152 /* font2.png in Resources */,
 				CFA2CEFB227A82A2006EF152 /* sprites.xml in Resources */,
 				CFDF75B5226420A900FAF20D /* minecraft_Sprite.png in Resources */,
 			);
