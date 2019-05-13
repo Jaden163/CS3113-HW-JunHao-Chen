@@ -20,10 +20,11 @@
 		6DEF23C11B96CC2600BCE792 /* fragment.glsl in Resources */ = {isa = PBXBuildFile; fileRef = 6DEF23BB1B96CC2600BCE792 /* fragment.glsl */; };
 		6DEF23C31B96CC2600BCE792 /* ShaderProgram.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6DEF23BE1B96CC2600BCE792 /* ShaderProgram.cpp */; };
 		6DEF23C41B96CC2600BCE792 /* vertex.glsl in Resources */ = {isa = PBXBuildFile; fileRef = 6DEF23C01B96CC2600BCE792 /* vertex.glsl */; };
-		CFA2CEF5227A7073006EF152 /* level1.txt in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEF4227A7073006EF152 /* level1.txt */; };
-		CFA2CEF9227A77E5006EF152 /* sprites.png in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEF8227A77E5006EF152 /* sprites.png */; };
-		CFA2CEFB227A82A2006EF152 /* sprites.xml in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEFA227A82A2006EF152 /* sprites.xml */; };
-		CFA2CEFD227B288D006EF152 /* font2.png in Resources */ = {isa = PBXBuildFile; fileRef = CFA2CEFC227B288D006EF152 /* font2.png */; };
+		CF4037062289177300420A43 /* combat.xml in Resources */ = {isa = PBXBuildFile; fileRef = CF4037042289177300420A43 /* combat.xml */; };
+		CF40370822891C3900420A43 /* combat.png in Resources */ = {isa = PBXBuildFile; fileRef = CF40370722891C3900420A43 /* combat.png */; };
+		CF40370A22891DB800420A43 /* sprites.png in Resources */ = {isa = PBXBuildFile; fileRef = CF40370922891DB800420A43 /* sprites.png */; };
+		CF5E3E27227F921D00440705 /* level1.txt in Resources */ = {isa = PBXBuildFile; fileRef = CF5E3E26227F921D00440705 /* level1.txt */; };
+		CF5E3E29227F923A00440705 /* font2.png in Resources */ = {isa = PBXBuildFile; fileRef = CF5E3E28227F923900440705 /* font2.png */; };
 		CFDF75AB2263FAD900FAF20D /* FlareMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CFDF75A92263FAD800FAF20D /* FlareMap.cpp */; };
 		CFDF75B5226420A900FAF20D /* minecraft_Sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */; };
 /* End PBXBuildFile section */
@@ -47,10 +48,11 @@
 		6DEF23BB1B96CC2600BCE792 /* fragment.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fragment.glsl; sourceTree = "<group>"; };
 		6DEF23BE1B96CC2600BCE792 /* ShaderProgram.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ShaderProgram.cpp; sourceTree = "<group>"; };
 		6DEF23C01B96CC2600BCE792 /* vertex.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = vertex.glsl; sourceTree = "<group>"; };
-		CFA2CEF4227A7073006EF152 /* level1.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = level1.txt; path = ../../../Downloads/level1.txt; sourceTree = "<group>"; };
-		CFA2CEF8227A77E5006EF152 /* sprites.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = sprites.png; path = "../../../Downloads/topdown_shooter 2/Final Characters Model/Done/sprites.png"; sourceTree = "<group>"; };
-		CFA2CEFA227A82A2006EF152 /* sprites.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = sprites.xml; path = "../../../Downloads/topdown_shooter 2/Final Characters Model/Done/sprites.xml"; sourceTree = "<group>"; };
-		CFA2CEFC227B288D006EF152 /* font2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = font2.png; path = ../../../CS3113/assets/fonts/font2.png; sourceTree = "<group>"; };
+		CF4037042289177300420A43 /* combat.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = combat.xml; sourceTree = "<group>"; };
+		CF40370722891C3900420A43 /* combat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = combat.png; sourceTree = "<group>"; };
+		CF40370922891DB800420A43 /* sprites.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = sprites.png; sourceTree = "<group>"; };
+		CF5E3E26227F921D00440705 /* level1.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = level1.txt; sourceTree = "<group>"; };
+		CF5E3E28227F923900440705 /* font2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = font2.png; sourceTree = "<group>"; };
 		CFDF75A92263FAD800FAF20D /* FlareMap.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FlareMap.cpp; sourceTree = "<group>"; };
 		CFDF75AA2263FAD900FAF20D /* FlareMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlareMap.h; sourceTree = "<group>"; };
 		CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = minecraft_Sprite.png; sourceTree = "<group>"; };
@@ -139,12 +141,13 @@
 				6DEF23BE1B96CC2600BCE792 /* ShaderProgram.cpp */,
 				6DEF23C01B96CC2600BCE792 /* vertex.glsl */,
 				CFDF75AA2263FAD900FAF20D /* FlareMap.h */,
-				CFA2CEF4227A7073006EF152 /* level1.txt */,
 				CFDF75A92263FAD800FAF20D /* FlareMap.cpp */,
 				CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */,
-				CFA2CEF8227A77E5006EF152 /* sprites.png */,
-				CFA2CEFC227B288D006EF152 /* font2.png */,
-				CFA2CEFA227A82A2006EF152 /* sprites.xml */,
+				CF5E3E26227F921D00440705 /* level1.txt */,
+				CF40370722891C3900420A43 /* combat.png */,
+				CF4037042289177300420A43 /* combat.xml */,
+				CF40370922891DB800420A43 /* sprites.png */,
+				CF5E3E28227F923900440705 /* font2.png */,
 				6D5A86B919AE5C710066C1FD /* main.cpp */,
 			);
 			name = Code;
@@ -203,17 +206,18 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CF40370A22891DB800420A43 /* sprites.png in Resources */,
+				CF5E3E29227F923A00440705 /* font2.png in Resources */,
+				CF40370822891C3900420A43 /* combat.png in Resources */,
+				CF5E3E27227F921D00440705 /* level1.txt in Resources */,
 				6D5A86B819AE5C710066C1FD /* InfoPlist.strings in Resources */,
 				6DEF23C11B96CC2600BCE792 /* fragment.glsl in Resources */,
 				6DE9D2F11BA6AB8C002D599C /* fragment_textured.glsl in Resources */,
+				CF4037062289177300420A43 /* combat.xml in Resources */,
 				6D5A86C619AE5C710066C1FD /* Images.xcassets in Resources */,
 				6D5A86BE19AE5C710066C1FD /* Credits.rtf in Resources */,
 				6DEF23C41B96CC2600BCE792 /* vertex.glsl in Resources */,
-				CFA2CEF9227A77E5006EF152 /* sprites.png in Resources */,
 				6DC7076A1BA7273500225B7D /* vertex_textured.glsl in Resources */,
-				CFA2CEF5227A7073006EF152 /* level1.txt in Resources */,
-				CFA2CEFD227B288D006EF152 /* font2.png in Resources */,
-				CFA2CEFB227A82A2006EF152 /* sprites.xml in Resources */,
 				CFDF75B5226420A900FAF20D /* minecraft_Sprite.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

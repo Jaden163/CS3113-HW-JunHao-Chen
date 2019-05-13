@@ -45,6 +45,7 @@ const Uint8 *keys=SDL_GetKeyboardState(NULL);
 GLuint characters;
 GLuint mineCraft;
 GLuint font;
+GLuint weapons;
 // initialize matrix
 glm::mat4 modelMatrix = glm::mat4(1.0f);
 glm::mat4 viewMatrix = glm::mat4(1.0f);
@@ -58,6 +59,7 @@ int turnIndex=0;
 class SheetSprite;
 class Entity;
 std::vector <Entity> entities;
+std::vector <Entity> combatElements;
 //initialize sprite index from xml for character models
 vector<SheetSprite*> character1;
 
@@ -157,7 +159,8 @@ void DrawText(int fontTexture, std::string text, float size, float spacing) {
 }
 
 
-enum EntityType {ENEMY,PLAYER};
+enum EntityType {PLAYER1,PLAYER2,ARROW,BULLETS};
+enum ModeType{MOVE,ATTACK,IDLE};
 class Entity{
 public:
     
@@ -175,7 +178,7 @@ public:
             
 
             string hpString=std::to_string(hp);
-            glm::mat4 modelMatrix = glm::mat4(1.0f);
+            modelMatrix = glm::mat4(1.0f);
             modelMatrix=glm::translate(modelMatrix,position);
             if (hpString.size()==3){
                 modelMatrix=glm::translate(modelMatrix,glm::vec3((-THREE_TEXT_OFFSET),0.075f,0.0f));
@@ -187,9 +190,58 @@ public:
             program.SetModelMatrix(modelMatrix);
             DrawText(font, hpString, TILE_SIZE, 0.0005);
         }
+        
+        if (&entities[turnIndex]==this && currentMode==ATTACK){
+            modelMatrix = glm::mat4(1.0f);
+            combatElements[0].position=position;
+            modelMatrix=glm::translate(modelMatrix,combatElements[0].position);
+            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
+            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,-0.085,0.0));
+            modelMatrix = glm::rotate(modelMatrix, combatElements[0].rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.5f,1.0f));
+            program.SetModelMatrix(modelMatrix);
+            combatElements[0].sprite.Draw();
+        }
+        
+        
+        
+//        if (&entities[turnIndex]==this && currentMode==ATTACK){
+//            float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+//            glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+//            glEnableVertexAttribArray(program.positionAttribute);
+//            float texCoords[] = {0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0};
+//            glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+//            glEnableVertexAttribArray(program.texCoordAttribute);
+//            glBindTexture(GL_TEXTURE_2D, weapons);
+//            glm::mat4 modelMatrix = glm::mat4(1.0f);
+//            modelMatrix=glm::translate(modelMatrix,position);
+//            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
+//            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+//            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.5f,1.0f));
+//            program.SetModelMatrix(modelMatrix);
+//
+//            glDrawArrays(GL_TRIANGLES, 0, 6);
+//
+//            glDisableVertexAttribArray(program.positionAttribute);
+//            glDisableVertexAttribArray(program.texCoordAttribute);
+//        }
     }
 
     void update(float elapsed){
+        
+
+        if (turnTimer<=0.0f){
+            turnTimer=5.0f;
+            if(currentMode==MOVE && attackFlag){
+                currentMode=ATTACK;
+            } else if (!moveFlag && !attackFlag){
+                moveFlag=true;
+                attackFlag=true;
+                nextTurn();
+            }
+        }
         
         if (aliveFlag){
             // gravity affecting all entities
@@ -209,21 +261,40 @@ public:
             velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
             
 
-            if (&entities[turnIndex]==this){
+
+            if (&entities[turnIndex]==this && (moveFlag || currentMode==MOVE)){
                 if (keys[SDL_SCANCODE_UP] && botFlag){
                     //only jump if botFlag is set
                     velocity.y+=30.0f*elapsed;
+                    moveFlag=false;
+                    currentMode=MOVE;
                 }
                 if (keys[SDL_SCANCODE_RIGHT]){
                     velocity.x+=0.5f*elapsed;
                     faceLeftFlag=false;
+                    moveFlag=false;
+                    currentMode=MOVE;
                 }
                 
                 if (keys[SDL_SCANCODE_LEFT]){
                     velocity.x-=0.5f*elapsed;
                     faceLeftFlag=true;
+                    moveFlag=false;
+                    currentMode=MOVE;
                 }
+                if (currentMode!=IDLE){
+                    turnTimer-=elapsed;
+                }
+            }else if(&entities[turnIndex]==this && currentMode==ATTACK){
+                if (keys[SDL_SCANCODE_RIGHT]){
+                    combatElements[0].rotation -= 90 * (3.1415926f / 180.0f)*elapsed ;
+                }
+                 if (keys[SDL_SCANCODE_LEFT]){
+                     combatElements[0].rotation += 90 * (3.1415926f / 180.0f)*elapsed ;
+
+                 }
             }
+
             
             //position updates
             position.y+=velocity.y*elapsed;
@@ -248,8 +319,6 @@ public:
             }
     }
 
-    
-    
     void checkYCollisionMap(){
         checkBotCollisionMap();
         checkTopCollisionMap();
@@ -277,12 +346,17 @@ public:
     glm::vec3 position;
     glm::vec3 size=glm::vec3(1.0f);
     glm::vec3 velocity=glm::vec3(0.0f,0.0f,0.0f);
-    // wanted another velocity for enemies only so player dont have starting velocity as well
     glm::vec3 gravity=glm::vec3(0.0f,-0.5f,0.0f);
     glm::vec3 friction=glm::vec3(1.0f,0.0f,0.0f);
     
     int hp=100;
+    float rotation;
+    float turnTimer=3.0;
+    bool moveFlag=true;
+    bool attackFlag=true;
     bool aliveFlag=true;
+    ModeType currentMode=IDLE;
+    
 
     bool topFlag=false;
     bool botFlag=false;
@@ -297,6 +371,8 @@ private:
         int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
         if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
             aliveFlag=false;
+            checkVictory();
+            nextTurn();
         }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((-TILE_SIZE*gridY)-(position.y-(size.y/2)*TILE_SIZE)));
             position.y+=penetration;
@@ -312,6 +388,8 @@ private:
         int gridY = (int)(position.y/(-TILE_SIZE)-size.y/2);
         if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
             aliveFlag=false;
+            checkVictory();
+            nextTurn();
         }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((-TILE_SIZE*gridY)-(position.y+(size.y/2)*TILE_SIZE)));
             // needed a little bit more to completely resolve penetration without stuttering camera movement
@@ -329,6 +407,8 @@ private:
         int gridY = (int)(position.y/(-TILE_SIZE));
         if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
             aliveFlag=false;
+            checkVictory();
+            nextTurn();
         }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((TILE_SIZE*gridX)-position.x-(size.x/2)*TILE_SIZE));
             position.x-=penetration;
@@ -344,6 +424,8 @@ private:
         int gridY = (int)(position.y/(-TILE_SIZE));
         if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
             aliveFlag=false;
+            checkVictory();
+            nextTurn();
         }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
             float penetration=fabs(((TILE_SIZE*gridX)-position.x+(size.x/2)*TILE_SIZE));
             penetration-=0.06f;
@@ -355,9 +437,32 @@ private:
         }
     }
     
-
+    void checkVictory(){
+        int aliveCount=0;
+        for (Entity& someEntity:entities){
+            if (someEntity.aliveFlag){
+                aliveCount++;
+            }
+        }
+        
+    }
     
+    void nextTurn(){
+        if(&entities[turnIndex]==this){
+            turnIndex++;
+            if (turnIndex==4){
+                turnIndex=0;
+            }
+            while (!entities[turnIndex].aliveFlag){
+                if (turnIndex==4){
+                    turnIndex=0;
+                }
+                turnIndex++;
+            }
+        }
+    }
 };
+
 
 void convertFlareEntity(){
     // converts flare map entity to in-game entity.
@@ -367,12 +472,94 @@ void convertFlareEntity(){
         Entity newEntity;
         newEntity.position=glm::vec3(xPos,yPos,0.0f);
         newEntity.modelAnimation=&character1;
-        newEntity.entityType=PLAYER;
+        newEntity.entityType=PLAYER1;
         newEntity.sprite=*((*newEntity.modelAnimation)[newEntity.index]);
         entities.push_back(newEntity);
     }
     
 };
+
+void drawMCSprite(int index, int spriteCountX,int spriteCountY) {
+    float u = (float)(((int)index) % spriteCountX) / (float) spriteCountX;
+    float v = (float)(((int)index) / spriteCountX) / (float) spriteCountY;
+    float spriteWidth = 1.0/(float)spriteCountX;
+    float spriteHeight = 1.0/(float)spriteCountY;
+    float texCoords[] = {
+        u, v+spriteHeight,
+        u+spriteWidth, v,
+        u, v,
+        u+spriteWidth, v,
+        u, v+spriteHeight,
+        u+spriteWidth, v+spriteHeight
+    };
+    float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f,  -0.5f,
+        -0.5f, 0.5f, -0.5f};
+    
+    glBindTexture(GL_TEXTURE_2D, mineCraft);
+    
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program.positionAttribute);
+    
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    
+}
+
+
+void renderUI(){
+    //writes move left
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.75f,0.95f,0.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font, "Moves Left:", TILE_SIZE, 0.0005);
+    
+    //render move icon
+    if (entities[turnIndex].moveFlag){
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+        modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.20f,0.95f,0.0f));
+        modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE));
+        program.SetModelMatrix(modelMatrix);
+        drawMCSprite(314, SPRITE_COUNT_X, SPRITE_COUNT_Y);
+    }
+    
+    // render attack icon
+    if (entities[turnIndex].attackFlag){
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+        modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.1f,0.95f,0.0f));
+        modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE));
+        program.SetModelMatrix(modelMatrix);
+        drawMCSprite(59, SPRITE_COUNT_X, SPRITE_COUNT_Y);
+    }
+    
+    // write timer
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.75f,0.85f,0.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font, "Move Timer:", TILE_SIZE, 0.0005);
+    
+    //render time left
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.20f,0.85f,0.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    int timeInt=entities[turnIndex].turnTimer;
+    string time = std::to_string(timeInt)+"s";
+    DrawText(font, time, TILE_SIZE, 0.0005);
+    
+    
+    
+}
 
 void randomSpawn(){
     //generate 4 player
@@ -524,6 +711,7 @@ void setUp(){
     mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
     characters=LoadTexture(RESOURCE_FOLDER"sprites.png");
     font=LoadTexture(RESOURCE_FOLDER"font2.png");
+    weapons=LoadTexture(RESOURCE_FOLDER"combat.png");
     renderMap();
     
     SheetSprite* model_1_1 = new SheetSprite(characters,0.0f/32.0f, 16.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
@@ -534,6 +722,15 @@ void setUp(){
     character1.push_back(model_1_3);
     SheetSprite* model_1_4 = new SheetSprite(characters,0.0f/32.0f, 0.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
     character1.push_back(model_1_4);
+    SheetSprite* arrowSprite= new SheetSprite(weapons,13.0f/32.0f, 0.0f/64.0f, 12.0f/32.0f, 46.0f/64.0f, 1.0f);
+    Entity arrow;
+    arrow.sprite=*arrowSprite;
+    arrow.position=glm::vec3(100);
+    arrow.friction=glm::vec3(0);
+    arrow.entityType=ARROW;
+    combatElements.push_back(arrow);
+    
+    
     
     randomSpawn();
     
@@ -541,6 +738,7 @@ void setUp(){
 
 void renderGameLevel(){
     renderMap();
+    renderUI();
     for (Entity& someEntity:entities){
         someEntity.render();
     }
@@ -563,9 +761,11 @@ void cameraMovement(){
     if (keys[SDL_SCANCODE_3]){
         turnIndex=3;
     }
-    viewMatrix=glm::translate(viewMatrix,-entities[turnIndex].position);
+    viewMatrix=glm::translate(viewMatrix,-entities[turnIndex].position);    
     program.SetViewMatrix(viewMatrix);
 }
+
+
 
 int main(int argc, char *argv[])
 {
@@ -575,7 +775,6 @@ int main(int argc, char *argv[])
 
     float accumulator = 0.0f;
     float lastFrameTicks=0.0f;
-    float turnTimer=15.0f;
     
     SDL_Event event;
     bool done = false;
@@ -587,7 +786,7 @@ int main(int argc, char *argv[])
         }
         glClear(GL_COLOR_BUFFER_BIT);
         //background as skyblue
-        glClearColor(144/255.0, 221/255.0, 223/255.0, 1.0f);
+        glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
         
         //game tick system
         float ticks=(float)SDL_GetTicks()/1000.0f;
@@ -602,21 +801,6 @@ int main(int argc, char *argv[])
         
         while(elapsed >= FIXED_TIMESTEP) {
             update(FIXED_TIMESTEP);
-            cout<<turnTimer<<endl;
-            if (turnTimer<=0.0f){
-                turnTimer=15.0f;
-                turnIndex++;
-                if (turnIndex==4){
-                    turnIndex=0;
-                }
-                while (!entities[turnIndex].aliveFlag){
-                    if (turnIndex==4){
-                        turnIndex=0;
-                    }
-                    turnIndex++;
-                }
-            }
-            turnTimer-=FIXED_TIMESTEP;
             elapsed -= FIXED_TIMESTEP;
         }
         accumulator = elapsed;
