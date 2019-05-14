@@ -1,0 +1,5 @@
+<TextureAtlas imagePath="sprites.png">
+	<SubTexture name="ammo_machinegun.png" x="0" y="26" width="13" height="38"/>
+	<SubTexture name="arrow.png" x="58" y="0" width="12" height="46"/>
+	<SubTexture name="rsz_1machinegun_000.png" x="0" y="0" width="58" height="26"/>
+</TextureAtlas>
