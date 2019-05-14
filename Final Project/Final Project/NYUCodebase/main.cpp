@@ -12,6 +12,8 @@
 #include "stb_image.h"
 #include "FlareMap.h"
 #include <random>
+#include <math.h>
+#include <SatCollision.h>
 
 #ifdef _WINDOWS
 #define RESOURCE_FOLDER ""
@@ -159,7 +161,7 @@ void DrawText(int fontTexture, std::string text, float size, float spacing) {
 }
 
 
-enum EntityType {PLAYER1,PLAYER2,ARROW,BULLETS};
+enum EntityType {PLAYER1,PLAYER2,ART,BULLETS};
 enum ModeType{MOVE,ATTACK,IDLE};
 class Entity{
 public:
@@ -176,22 +178,24 @@ public:
             program.SetModelMatrix(modelMatrix);
             sprite.Draw();
             
-
-            string hpString=std::to_string(hp);
-            modelMatrix = glm::mat4(1.0f);
-            modelMatrix=glm::translate(modelMatrix,position);
-            if (hpString.size()==3){
-                modelMatrix=glm::translate(modelMatrix,glm::vec3((-THREE_TEXT_OFFSET),0.075f,0.0f));
-            }else if (hpString.size()==2){
-                modelMatrix=glm::translate(modelMatrix,glm::vec3((-TWO_TEXT_OFFSET),0.075f,0.0f));
-            }else{
-                modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0f,0.075f,0.0f));
+            if (&entities[turnIndex]!=this ){
+                string hpString=std::to_string(hp);
+                modelMatrix = glm::mat4(1.0f);
+                modelMatrix=glm::translate(modelMatrix,position);
+                if (hpString.size()==3){
+                    modelMatrix=glm::translate(modelMatrix,glm::vec3((-THREE_TEXT_OFFSET),0.075f,0.0f));
+                }else if (hpString.size()==2){
+                    modelMatrix=glm::translate(modelMatrix,glm::vec3((-TWO_TEXT_OFFSET),0.075f,0.0f));
+                }else{
+                    modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0f,0.075f,0.0f));
+                }
+                program.SetModelMatrix(modelMatrix);
+                DrawText(font, hpString, TILE_SIZE, 0.0005);
             }
-            program.SetModelMatrix(modelMatrix);
-            DrawText(font, hpString, TILE_SIZE, 0.0005);
         }
         
         if (&entities[turnIndex]==this && currentMode==ATTACK){
+            // draw direction arrow
             modelMatrix = glm::mat4(1.0f);
             combatElements[0].position=position;
             modelMatrix=glm::translate(modelMatrix,combatElements[0].position);
@@ -200,124 +204,170 @@ public:
             modelMatrix = glm::rotate(modelMatrix, combatElements[0].rotation, glm::vec3(0.0f, 0.0f, 1.0f));
             modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
             modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.5f,1.0f));
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(2.0f,1.5f,1.0f));
             program.SetModelMatrix(modelMatrix);
             combatElements[0].sprite.Draw();
+            
+            //draw gun
+            modelMatrix = glm::mat4(1.0f);
+            combatElements[1].position=position;
+            combatElements[1].faceLeftFlag=faceLeftFlag;
+            modelMatrix=glm::translate(modelMatrix,combatElements[1].position);
+            if (faceLeftFlag){
+                modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.02,0.0,0.0));
+                modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
+            }else{
+                modelMatrix=glm::translate(modelMatrix,glm::vec3(0.02,0.0,0.0));
+                modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+            }
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.45f,0.45f,1.0f));
+            program.SetModelMatrix(modelMatrix);
+            combatElements[1].sprite.Draw();
+            
+            // draw bullet
+            modelMatrix = glm::mat4(1.0f);
+            modelMatrix=glm::translate(modelMatrix,combatElements[2].position);
+            modelMatrix = glm::rotate(modelMatrix, combatElements[2].rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+            if (faceLeftFlag){
+                modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
+            }else{
+                modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+            }
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.55f,0.55f,1.0f));
+            program.SetModelMatrix(modelMatrix);
+            combatElements[2].sprite.Draw();
+            
         }
         
         
-        
-//        if (&entities[turnIndex]==this && currentMode==ATTACK){
-//            float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
-//            glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
-//            glEnableVertexAttribArray(program.positionAttribute);
-//            float texCoords[] = {0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0};
-//            glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
-//            glEnableVertexAttribArray(program.texCoordAttribute);
-//            glBindTexture(GL_TEXTURE_2D, weapons);
-//            glm::mat4 modelMatrix = glm::mat4(1.0f);
-//            modelMatrix=glm::translate(modelMatrix,position);
-//            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
-//            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
-//            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.5f,1.0f));
-//            program.SetModelMatrix(modelMatrix);
-//
-//            glDrawArrays(GL_TRIANGLES, 0, 6);
-//
-//            glDisableVertexAttribArray(program.positionAttribute);
-//            glDisableVertexAttribArray(program.texCoordAttribute);
-//        }
+
     }
 
     void update(float elapsed){
         
-
-        if (turnTimer<=0.0f){
-            turnTimer=5.0f;
-            if(currentMode==MOVE && attackFlag){
-                currentMode=ATTACK;
-            } else if (!moveFlag && !attackFlag){
-                moveFlag=true;
-                attackFlag=true;
-                nextTurn();
+        if (entityType==PLAYER1 || entityType==PLAYER2){
+            if (turnTimer<=0.0f){
+                turnTimer=5.0f;
+                if(currentMode==MOVE && attackFlag){
+                    currentMode=ATTACK;
+                } else if (!moveFlag && !attackFlag){
+                    moveFlag=true;
+                    attackFlag=true;
+                    nextTurn();
+                }
             }
-        }
-        
-        if (aliveFlag){
-            // gravity affecting all entities
-            velocity.y += gravity.y * elapsed;
             
-            // check collision against other entioties
-            for (int i=0;i<9;i++){
-                if(checkEntityCollision(entities[i])){
-                    if ((position.y - entities[i].position.y) > size.y/2*TILE_SIZE){
-                        //entities[i].position.x=100.0f;
+            if (aliveFlag){
+                // gravity affecting all entities
+                velocity.y += gravity.y * elapsed;
+                
+                // check collision against other entioties
+                for (int i=0;i<9;i++){
+                    if(checkEntityCollision(entities[i])){
+                        if ((position.y - entities[i].position.y) > size.y/2*TILE_SIZE){
+                            //entities[i].position.x=100.0f;
+                        }
                     }
                 }
-            }
-            
-            // friction
-            velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
-            velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
-            
-
-
-            if (&entities[turnIndex]==this && (moveFlag || currentMode==MOVE)){
-                if (keys[SDL_SCANCODE_UP] && botFlag){
-                    //only jump if botFlag is set
-                    velocity.y+=30.0f*elapsed;
-                    moveFlag=false;
-                    currentMode=MOVE;
-                }
-                if (keys[SDL_SCANCODE_RIGHT]){
-                    velocity.x+=0.5f*elapsed;
-                    faceLeftFlag=false;
-                    moveFlag=false;
-                    currentMode=MOVE;
-                }
                 
-                if (keys[SDL_SCANCODE_LEFT]){
-                    velocity.x-=0.5f*elapsed;
-                    faceLeftFlag=true;
-                    moveFlag=false;
-                    currentMode=MOVE;
-                }
-                if (currentMode!=IDLE){
-                    turnTimer-=elapsed;
-                }
-            }else if(&entities[turnIndex]==this && currentMode==ATTACK){
-                if (keys[SDL_SCANCODE_RIGHT]){
-                    combatElements[0].rotation -= 90 * (3.1415926f / 180.0f)*elapsed ;
-                }
-                 if (keys[SDL_SCANCODE_LEFT]){
-                     combatElements[0].rotation += 90 * (3.1415926f / 180.0f)*elapsed ;
-
-                 }
-            }
-
+                // friction
+                velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
+                velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
             
-            //position updates
-            position.y+=velocity.y*elapsed;
+                if (&entities[turnIndex]==this && (moveFlag || currentMode==MOVE)){
+                    if (keys[SDL_SCANCODE_UP] && botFlag){
+                        //only jump if botFlag is set
+                        velocity.y+=30.0f*elapsed;
+                        moveFlag=false;
+                        currentMode=MOVE;
+                    }
+                    if (keys[SDL_SCANCODE_RIGHT]){
+                        velocity.x+=0.5f*elapsed;
+                        faceLeftFlag=false;
+                        moveFlag=false;
+                        currentMode=MOVE;
+                    }
+                    
+                    if (keys[SDL_SCANCODE_LEFT]){
+                        velocity.x-=0.5f*elapsed;
+                        faceLeftFlag=true;
+                        moveFlag=false;
+                        currentMode=MOVE;
+                    }
+                    if (currentMode!=IDLE){
+                        turnTimer-=elapsed;
+                    }
+                }else if(&entities[turnIndex]==this && currentMode==ATTACK){
+                    if (keys[SDL_SCANCODE_RIGHT]){
+                        combatElements[0].rotation -= 90 * (3.1415926f / 180.0f)*elapsed ;
+                        faceLeftFlag=false;
+                    }
+                     if (keys[SDL_SCANCODE_LEFT]){
+                         combatElements[0].rotation += 90 * (3.1415926f / 180.0f)*elapsed ;
+                         faceLeftFlag=true;
+                     }
+                    if (keys[SDL_SCANCODE_SPACE]){
+                        combatElements[2].position=combatElements[0].position;
+                        combatElements[2].faceLeftFlag=faceLeftFlag;
+                        combatElements[2].aliveFlag=true;
+                        combatElements[2].rotation=combatElements[0].rotation;
+                        
+                        if (faceLeftFlag){
+                            combatElements[2].position.x-=0.04;
+                        }else{
+                            combatElements[2].position.x+=0.04;
+                        }
+                    }
+                }
+
+                
+                //position updates
+                position.y+=velocity.y*elapsed;
+                checkYCollisionMap();
+                position.x+=velocity.x*elapsed;
+                checkXCollisionMap();
+                
+                
+                //moving animation stuff
+                animationElapsed += elapsed;
+                if(animationElapsed > 1.0/framesPerSecond) {
+                    index++;
+                    animationElapsed = 0.0;
+                    if(index > 3) {
+                        index = 0;
+                    }
+                }
+                if (abs(velocity.x)<=0.025){
+                    index=1;
+                }
+                sprite=*((*modelAnimation)[index]);
+            }
+            
+        }else if(entityType==BULLETS && aliveFlag){
+            if (faceLeftFlag){
+                position.x+=0.25*elapsed*cos(rotation);
+                position.y+=0.25*elapsed*sin(rotation);
+                
+            }else{
+                position.x+=0.25*elapsed;
+                position.y+=0.25*elapsed;
+
+            }
             checkYCollisionMap();
-            position.x+=velocity.x*elapsed;
+            if (botFlag || topFlag){
+                aliveFlag=false;
+                position=glm::vec3(100);
+            }
             checkXCollisionMap();
+            if (leftFlag || rightFlag){
+                aliveFlag=false;
+                position=glm::vec3(100);
+            }
             
-            
-            //moving animation stuff
-            animationElapsed += elapsed;
-            if(animationElapsed > 1.0/framesPerSecond) {
-                index++;
-                animationElapsed = 0.0;
-                if(index > 3) {
-                    index = 0;
-                }
-            }
-            if (abs(velocity.x)<=0.025){
-                index=1;
-            }
-            sprite=*((*modelAnimation)[index]);
-            }
+        }
+        
     }
+    
 
     void checkYCollisionMap(){
         checkBotCollisionMap();
@@ -558,6 +608,22 @@ void renderUI(){
     DrawText(font, time, TILE_SIZE, 0.0005);
     
     
+    //render "current HP"
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.750f,0.75f,0.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font, "Current HP", TILE_SIZE, 0.0005);
+    
+    //render  HP
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
+    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.2f,0.75f,0.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    string health = std::to_string(entities[turnIndex].hp);
+    DrawText(font, health, TILE_SIZE, 0.0005);
     
 }
 
@@ -722,15 +788,35 @@ void setUp(){
     character1.push_back(model_1_3);
     SheetSprite* model_1_4 = new SheetSprite(characters,0.0f/32.0f, 0.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
     character1.push_back(model_1_4);
-    SheetSprite* arrowSprite= new SheetSprite(weapons,13.0f/32.0f, 0.0f/64.0f, 12.0f/32.0f, 46.0f/64.0f, 1.0f);
+    
+    //arrow
+    SheetSprite* arrowSprite= new SheetSprite(weapons,58.0f/128.0f, 0.0f/64.0f, 12.0f/128.0f, 46.0f/64.0f, 1.0f);
     Entity arrow;
     arrow.sprite=*arrowSprite;
     arrow.position=glm::vec3(100);
     arrow.friction=glm::vec3(0);
-    arrow.entityType=ARROW;
+    arrow.entityType=ART;
     combatElements.push_back(arrow);
     
+    //machine gun
+    SheetSprite* machineGunSprite= new SheetSprite(weapons,0.0f/128.0f, 0.0f/64.0f, 58.0f/128.0f, 26.0f/64.0f, 1.0f);
+    Entity machineGun;
+    machineGun.sprite=*machineGunSprite;
+    arrow.position=glm::vec3(100);
+    machineGun.friction=glm::vec3(0);
+    machineGun.entityType=ART;
+    combatElements.push_back(machineGun);
     
+    //bullet
+    SheetSprite* bulletSprite= new SheetSprite(weapons,0.0f/128.0f, 26.0f/64.0f, 13.0f/128.0f, 38.0f/64.0f, 1.0f);
+    Entity bullet;
+    bullet.sprite=*bulletSprite;
+    bullet.position=glm::vec3(100);
+    bullet.friction=glm::vec3(0);
+    bullet.entityType=BULLETS;
+    bullet.aliveFlag=false;
+    combatElements.push_back(bullet);
+
     
     randomSpawn();
     
@@ -746,6 +832,9 @@ void renderGameLevel(){
 
 void update(float elapsed){
     for (Entity& someEntity:entities){
+        someEntity.update(elapsed);
+    }
+    for (Entity& someEntity:combatElements){
         someEntity.update(elapsed);
     }
 }
