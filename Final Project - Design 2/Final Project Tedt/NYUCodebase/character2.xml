@@ -1,0 +1,6 @@
+<TextureAtlas imagePath="sprites.png">
+	<SubTexture name="rsz_1rsz_2_side_03_000.png" x="12" y="0" width="11" height="16"/>
+	<SubTexture name="rsz_2_side_01_000.png" x="12" y="16" width="11" height="16"/>
+	<SubTexture name="rsz_2_side_02_000.png" x="0" y="0" width="12" height="16"/>
+	<SubTexture name="rsz_2_side_04_000.png" x="0" y="16" width="12" height="16"/>
+</TextureAtlas>

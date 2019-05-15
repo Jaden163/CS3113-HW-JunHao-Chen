@@ -21,12 +21,15 @@
 #define RESOURCE_FOLDER "NYUCodebase.app/Contents/Resources/"
 #endif
 
+
 #define LEVEL_WIDTH 55
 #define LEVEL_HEIGHT 40
 #define SPRITE_COUNT_X 32
 #define SPRITE_COUNT_Y 32
 #define FIXED_TIMESTEP 0.0166666f
 #define TILE_SIZE 1/16.0f
+
+//UI interface data
 #define START_BOX_Left 0.26655f
 #define START_BOX_TOP -0.422222f
 #define START_BOX_BOTTOM -0.8f
@@ -61,6 +64,7 @@ ShaderProgram program1;
 const Uint8 *keys=SDL_GetKeyboardState(NULL);
 //initialize textsheet
 GLuint characters;
+GLuint character2;
 GLuint mineCraft;
 GLuint font;
 GLuint weapons;
@@ -75,23 +79,25 @@ FlareMap map;
 //initialize mouse positions
 float mouseX;
 float mouseY;
+//misc
 int setUpCount=0;
 int winner;
 int mapSelect=0;
 float startTimer=4.0;
+//audio stuff
 int audio=Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 4096 );
 Mix_Music* menuMusic;
 Mix_Music* gameMusic;
 Mix_Chunk* shootBullet;
 
 
-
 class SheetSprite;
 class Entity;
 std::vector <Entity> entities;
 std::vector <Entity> combat;
-//initialize sprite index from xml for character models
+//initialize sprite index from xml for character animation
 vector<SheetSprite*> character1;
+vector<SheetSprite*> character2Vec;
 
 
 
@@ -104,6 +110,101 @@ float lerp(float v0, float v1, float t) {
     return (1.0-t)*v0 + t*v1;
 }
 
+//particle stuff
+class Particle {
+public:
+    Particle() {};
+    glm::vec3 position;
+    glm::vec3 velocity;
+    float lifetime;
+    float sizeDeviation;
+    float rotation;
+};
+
+class ParticleEmitter {
+public:
+    ParticleEmitter(unsigned int particleCount) {};
+    ParticleEmitter() {};
+    ~ParticleEmitter() {};
+    
+    void Update(float elapsed);
+    void Render();
+    
+    glm::vec3 position;
+    glm::vec3 velocity=glm::vec3(0.0f, 2.0f, 0.0f);
+    glm::vec3 velocityDeviation=glm::vec3(1.0f,0.0f,0.0f);
+    glm::vec3 gravity=glm::vec3(0.0f, -4.0f, 0.0f);
+    
+    float startSize=0.01;
+    float endSize=0.05;
+    float sizeDeviation=0.01;
+    
+    float maxLifetime=1;
+    std::vector<Particle> particles;
+};
+
+void ParticleEmitter::Render() {
+    std::vector<float> vertices;
+    std::vector<float> particleColors;
+    for(int i=0; i < particles.size(); i++) {
+        float m = (particles[i].lifetime/maxLifetime);
+        float size = lerp(startSize, endSize, m) + particles[i].sizeDeviation;
+        float cosTheta = cosf(particles[i].rotation);
+        float sinTheta = sinf(particles[i].rotation);
+        float TL_x = cosTheta * -size - sinTheta * size;
+        float TL_y = sinTheta * -size + cosTheta * size;
+        float BL_x = cosTheta * -size - sinTheta * -size;
+        float BL_y = sinTheta * -size + cosTheta * -size;
+        float BR_x = cosTheta * size - sinTheta * -size;
+        float BR_y = sinTheta * size + cosTheta * -size;
+        float TR_x = cosTheta * size - sinTheta * size;
+        float TR_y = sinTheta * size + cosTheta * size;
+        vertices.insert(vertices.end(), {
+            particles[i].position.x + TL_x, particles[i].position.y + TL_y,
+            particles[i].position.x + BL_x, particles[i].position.y + BL_y,
+            particles[i].position.x + TR_x, particles[i].position.y + TR_y,
+            particles[i].position.x + TR_x, particles[i].position.y + TR_y,
+            particles[i].position.x + BL_x, particles[i].position.y + BL_y,
+            particles[i].position.x + BR_x, particles[i].position.y + BR_y
+        });
+        particles[i].rotation += 0.1;
+    }
+    glUseProgram(program1.programID);
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices.data());
+    glEnableVertexAttribArray(program1.positionAttribute);
+    modelMatrix = glm::mat4(1.0f);
+    program1.SetModelMatrix(modelMatrix);
+    program1.SetColor(1.0f,0.8f,0.80f, 1.0f);
+    glDrawArrays(GL_TRIANGLES, 0, vertices.size()/2);
+    glUseProgram(program.programID);
+}
+
+void ParticleEmitter::Update(float elapsed) {
+    srand(time(0));
+    //random lifetime,velocity,size
+    float random=0;
+    for (Particle &particle : particles) {
+        random=rand()%100;
+        if (int(random)%2==0){
+            random=-random;
+        }
+        random=random/100;
+        particle.velocity.x += gravity.x * elapsed;
+        particle.velocity.y += gravity.y * elapsed;
+        particle.position.x += particle.velocity.x * elapsed;
+        particle.position.y += particle.velocity.y * elapsed;
+        if (particle.lifetime > maxLifetime) {
+            particle.position = position;
+            particle.lifetime -= maxLifetime;
+            particle.velocity.x = velocity.x + random;
+            particle.velocity.y = velocity.y;
+        }
+        particle.lifetime += elapsed;
+    }
+}
+
+//initialize a particle emitter
+ParticleEmitter particleSources[1];
 
 class SheetSprite {
 public:
@@ -201,7 +302,6 @@ public:
     
     void render(){
         
-        
         if (aliveFlag){
             modelMatrix = glm::mat4(1.0f);
             modelMatrix=glm::translate(modelMatrix,position);
@@ -213,22 +313,7 @@ public:
             program.SetModelMatrix(modelMatrix);
             sprite.Draw();
             
-
-//            string hpString=std::to_string(hp);
-//            modelMatrix = glm::mat4(1.0f);
-//            modelMatrix=glm::translate(modelMatrix,position);
-//            if (hpString.size()==3){
-//                modelMatrix=glm::translate(modelMatrix,glm::vec3((-THREE_TEXT_OFFSET),0.075f,0.0f));
-//            }else if (hpString.size()==2){
-//                modelMatrix=glm::translate(modelMatrix,glm::vec3((-TWO_TEXT_OFFSET),0.075f,0.0f));
-//            }else{
-//                modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0f,0.075f,0.0f));
-//            }
-//            program.SetModelMatrix(modelMatrix);
-//            DrawText(font, hpString, TILE_SIZE, 0.0005);
-
-        
-            //draw gun
+            //draw gun attached to character model
             modelMatrix = glm::mat4(1.0f);
             combat[0].position=position;
             combat[0].faceLeftFlag=faceLeftFlag;
@@ -245,7 +330,7 @@ public:
             combat[0].sprite.Draw();
         }
         
-        // draw bullet
+        // draw bullets
         modelMatrix = glm::mat4(1.0f);
         modelMatrix=glm::translate(modelMatrix,combat[1].position);
         float rotation= 90*(3.14159/180);
@@ -279,6 +364,7 @@ public:
         if (entityType==PLAYER1 || entityType==PLAYER2){
             
             if (aliveFlag){
+                
                 // gravity affecting all entities
                 velocity.y += gravity.y * elapsed;
                 
@@ -291,21 +377,15 @@ public:
                     if (keys[SDL_SCANCODE_I] && botFlag){
                         //only jump if botFlag is set
                         velocity.y+=30.0f*elapsed;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     if (keys[SDL_SCANCODE_L]){
                         velocity.x+=0.5f*elapsed;
                         faceLeftFlag=false;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     
                     if (keys[SDL_SCANCODE_J]){
                         velocity.x-=0.5f*elapsed;
                         faceLeftFlag=true;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     if (keys[SDL_SCANCODE_RETURN] && combat[2].shotFlag){
                         Mix_VolumeChunk(shootBullet, 10);
@@ -325,21 +405,15 @@ public:
                     if (keys[SDL_SCANCODE_W] && botFlag){
                         //only jump if botFlag is set
                         velocity.y+=30.0f*elapsed;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     if (keys[SDL_SCANCODE_D]){
                         velocity.x+=0.5f*elapsed;
                         faceLeftFlag=false;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     
                     if (keys[SDL_SCANCODE_A]){
                         velocity.x-=0.5f*elapsed;
                         faceLeftFlag=true;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     if (keys[SDL_SCANCODE_SPACE] && combat[1].shotFlag){
                         Mix_VolumeChunk(shootBullet, 10);
@@ -357,14 +431,13 @@ public:
                     }
                 }
 
-                
                     //position updates
                     position.y+=velocity.y*elapsed;
                     checkYCollisionMap();
                     position.x+=velocity.x*elapsed;
                     checkXCollisionMap();
                 
-                
+
                     //moving animation stuff
                     animationElapsed += elapsed;
                     if(animationElapsed > 1.0/framesPerSecond) {
@@ -383,6 +456,7 @@ public:
         }
         
         if(entityType==BULLETS && aliveFlag){
+            //check bullet against characters
             if (this==&combat[2]){
                 if(checkEntityCollision(entities[0])){
                     entities[0].aliveFlag=false;
@@ -449,12 +523,8 @@ public:
     glm::vec3 friction=glm::vec3(1.0f,0.0f,0.0f);
     
     bool shotFlag=true;
-    int lives=2;
-    int hp=100;
-    bool moveFlag=true;
-    bool attackFlag=true;
     bool aliveFlag=true;
-    ModeType currentMode=IDLE;
+
     
 
     bool topFlag=false;
@@ -606,11 +676,13 @@ void convertFlareEntity(){
         float yPos=someEntity.y*-TILE_SIZE;
         Entity newEntity;
         newEntity.position=glm::vec3(xPos,yPos,0.0f);
-        newEntity.modelAnimation=&character1;
         if (count==0){
+            newEntity.modelAnimation=&character1;
             newEntity.entityType=PLAYER1;
         }else{
             newEntity.entityType=PLAYER2;
+            newEntity.modelAnimation=&character2Vec;
+
         }
         count++;
         newEntity.sprite=*((*newEntity.modelAnimation)[newEntity.index]);
@@ -650,24 +722,6 @@ void drawMCSprite(int index, int spriteCountX,int spriteCountY) {
     
 }
 
-
-void renderUI(){
-//    //writes move left
-//    modelMatrix = glm::mat4(1.0f);
-//    modelMatrix=glm::translate(modelMatrix,combat[3].position);
-//    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.75f,0.95f,0.0f));
-//    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-//    program.SetModelMatrix(modelMatrix);
-//    DrawText(font, "Lives", TILE_SIZE, 0.0005);
-//
-//    modelMatrix = glm::mat4(1.0f);
-//    modelMatrix=glm::translate(modelMatrix,combat[3].position);
-//    modelMatrix=glm::translate(modelMatrix, glm::vec3(1.55f,0.95f,0.0f));
-//    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-//    program.SetModelMatrix(modelMatrix);
-//    DrawText(font, "Lives", TILE_SIZE, 0.0005);
-    
-}
 
 void intialSpawn(){
     //generate 2 player
@@ -814,6 +868,7 @@ void setUp(){
     menuMusic=Mix_LoadMUS("menuMusic.mp3");
     gameMusic=Mix_LoadMUS("gameMusic.mp3");
     shootBullet=Mix_LoadWAV("awpSound.wav");
+    character2=LoadTexture(RESOURCE_FOLDER"character2.png");
     
     
     
@@ -825,6 +880,15 @@ void setUp(){
     character1.push_back(model_1_3);
     SheetSprite* model_1_4 = new SheetSprite(characters,0.0f/32.0f, 0.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
     character1.push_back(model_1_4);
+    
+    SheetSprite* model_2_1 = new SheetSprite(character2,12.0f/32.0f, 16.0f/32.0f, 11.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_1);
+    SheetSprite* model_2_2 = new SheetSprite(character2,0.0f/32.0f, 0.0f/32.0f, 12.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_2);
+    SheetSprite* model_2_3 = new SheetSprite(character2,12.0f/32.0f, 0.0f/32.0f, 11.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_3);
+    SheetSprite* model_2_4 = new SheetSprite(character2,0.0f/32.0f, 16.0f/32.0f, 12.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_4);
     
     
     //machine gun
@@ -847,6 +911,16 @@ void setUp(){
     bullet.aliveFlag=false;
     combat.push_back(bullet);
     combat.push_back(bullet);
+    
+    srand(time(0));
+    float random;
+    for (int i = 0; i < 50; i++) {
+        random=rand()%100;
+        Particle p;
+        p.lifetime = lerp(0.0, particleSources[0].maxLifetime,random/100.0);
+        p.sizeDeviation = lerp(-particleSources[0].sizeDeviation, particleSources[0].sizeDeviation,random/100.0);
+        particleSources[0].particles.push_back(p);
+    }
     
     //camera entity
     Entity camera;
@@ -895,7 +969,6 @@ void renderGameLevel(){
     
     renderMap();
     cameraMovement();
-    renderUI();
     for (Entity& someEntity:entities){
         someEntity.render();
     }
@@ -908,6 +981,10 @@ void renderGameLevel(){
         program.SetModelMatrix(modelMatrix);
         DrawText(font, timeString, 0.25, 0.0005);
     }
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
 }
 
 void renderGameMenu(){
@@ -935,8 +1012,6 @@ void renderGameMenu(){
     modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
     program.SetModelMatrix(modelMatrix);
     DrawText(font, "Start", 0.25f,0.0005f);
-    
-    
     
     glDisableVertexAttribArray(program.positionAttribute);
     glDisableVertexAttribArray(program.texCoordAttribute);
@@ -980,9 +1055,6 @@ void renderMapSelect(){
     modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
     program.SetModelMatrix(modelMatrix);
     DrawText(font, "Select Your Map", 0.25f,0.0005f);
-    
-
-    
     
     glDisableVertexAttribArray(program.positionAttribute);
     glDisableVertexAttribArray(program.texCoordAttribute);
@@ -1030,6 +1102,10 @@ void renderPause(){
     modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.1,-0.10,1.0f));
     program.SetModelMatrix(modelMatrix);
     DrawText(font,"Quit", 0.075, 0.0005);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
 }
 
 void renderGameOver(){
@@ -1039,7 +1115,9 @@ void renderGameOver(){
     }
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    
     renderMap();
+    
     cameraMovement();
     for (Entity& someEntity:entities){
         someEntity.render();
@@ -1091,6 +1169,16 @@ void renderGameOver(){
         DrawText(font,"Player 1 Wins!", 0.075, 0.0005);
     }
     
+    particleSources[0].position = combat[3].position;
+    particleSources[0].position.x-=1.76f;
+    particleSources[0].position.y+=1.4f;
+    particleSources[0].Render();
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
+
+    
 }
 
 
@@ -1118,6 +1206,10 @@ void update(float elapsed){
     for (Entity& someEntity:entities){
         someEntity.update(elapsed);
     }
+    particleSources[0].position = combat[3].position;
+    particleSources[0].position.x-=2.0f;
+    particleSources[0].Update(elapsed);
+    
     for (Entity& someEntity:combat){
         someEntity.update(elapsed);
     }
@@ -1215,6 +1307,8 @@ int main(int argc, char *argv[])
         while(elapsed >= FIXED_TIMESTEP) {
             if ((mode==GAME_LEVEL) && setUpCount!=0){
                 update(FIXED_TIMESTEP);
+            }else if(mode==GAME_OVER){
+                particleSources[0].Update(FIXED_TIMESTEP);
             }
             elapsed -= FIXED_TIMESTEP;
         }
