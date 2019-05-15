@@ -7,12 +7,13 @@
 #include <SDL_image.h>
 #include "ShaderProgram.h"
 #include "glm/mat4x2.hpp"
+#include <SDL_mixer.h>
 #include "glm/gtc/matrix_transform.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "FlareMap.h"
 #include <random>
-#include <math.h>
+
 
 #ifdef _WINDOWS
 #define RESOURCE_FOLDER ""
@@ -30,6 +31,20 @@
 #define START_BOX_TOP -0.422222f
 #define START_BOX_BOTTOM -0.8f
 #define START_BOX_RIGHT 1.8603
+#define TILED_BOX_LEFT1 0.26655f
+#define TILED_BOX_RIGHT1 1.8603
+#define TILED_BOX_BOT1 -0.738889
+#define TILED_BOX_TOP1 -0.333333f
+#define TILED_BOX_LEFT2 0.26655f
+#define TILED_BOX_RIGHT2 1.8603f
+#define TILED_BOX_BOT2  -1.2f
+#define TILED_BOX_TOP2 -0.8111111f
+#define MAP1_LEFT -0.294316
+#define MAP1_RIGHT 0.505334
+#define MAP1_TOP -0.2f
+#define MAP1_BOT -1.01111
+
+
 
 
 using namespace std;
@@ -49,6 +64,9 @@ GLuint characters;
 GLuint mineCraft;
 GLuint font;
 GLuint weapons;
+GLuint map1;
+GLuint map2;
+GLuint map3;
 // initialize matrix
 glm::mat4 modelMatrix = glm::mat4(1.0f);
 glm::mat4 viewMatrix = glm::mat4(1.0f);
@@ -58,7 +76,13 @@ FlareMap map;
 float mouseX;
 float mouseY;
 int setUpCount=0;
-
+int winner;
+int mapSelect=0;
+float startTimer=4.0;
+int audio=Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 4096 );
+Mix_Music* menuMusic;
+Mix_Music* gameMusic;
+Mix_Chunk* shootBullet;
 
 
 
@@ -71,7 +95,7 @@ vector<SheetSprite*> character1;
 
 
 
-enum GameMode {MAIN_MENU,MAP_SELECT,GAME_LEVEL,GAME_OVER,PAUSE};
+enum GameMode {MAIN_MENU,MAP_SELECT,GAME_LEVEL,GAME_OVER};
 GameMode mode=MAIN_MENU;
 
 
@@ -262,9 +286,8 @@ public:
                 velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
                 velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
             
-                if (entityType==PLAYER2){
-                    
-                    
+                if (entityType==PLAYER2 && startTimer<1.0f){
+        
                     if (keys[SDL_SCANCODE_I] && botFlag){
                         //only jump if botFlag is set
                         velocity.y+=30.0f*elapsed;
@@ -285,6 +308,8 @@ public:
                         currentMode=MOVE;
                     }
                     if (keys[SDL_SCANCODE_RETURN] && combat[2].shotFlag){
+                        Mix_VolumeChunk(shootBullet, 10);
+                        Mix_PlayChannel( 1, shootBullet, 0);
                         combat[2].shotFlag=false;
                         combat[2].position=position;
                         combat[2].faceLeftFlag=faceLeftFlag;
@@ -296,7 +321,7 @@ public:
                             combat[2].position.x+=0.04;
                         }
                     }
-                }else if (entityType==PLAYER1){
+                }else if (entityType==PLAYER1 && startTimer<1.0f){
                     if (keys[SDL_SCANCODE_W] && botFlag){
                         //only jump if botFlag is set
                         velocity.y+=30.0f*elapsed;
@@ -317,6 +342,8 @@ public:
                         currentMode=MOVE;
                     }
                     if (keys[SDL_SCANCODE_SPACE] && combat[1].shotFlag){
+                        Mix_VolumeChunk(shootBullet, 10);
+                        Mix_PlayChannel( 1, shootBullet, 0);
                         combat[1].shotFlag=false;
                         combat[1].position=position;
                         combat[1].faceLeftFlag=faceLeftFlag;
@@ -353,7 +380,9 @@ public:
                     sprite=*((*modelAnimation)[index]);
             }
             
-        }else if(entityType==BULLETS && aliveFlag){
+        }
+        
+        if(entityType==BULLETS && aliveFlag){
             if (this==&combat[2]){
                 if(checkEntityCollision(entities[0])){
                     entities[0].aliveFlag=false;
@@ -367,10 +396,10 @@ public:
             }
             
             if (faceLeftFlag){
-                position.x-=1.0*elapsed;
+                position.x-=1.5*elapsed;
                 
             }else{
-                position.x+=1.0*elapsed;
+                position.x+=1.5*elapsed;
             }
             checkYCollisionMap();
             if (botFlag || topFlag){
@@ -558,18 +587,12 @@ private:
     
     void checkVictory(){
         if (!entities[0].aliveFlag){
-            modelMatrix = glm::mat4(1.0f);
-            modelMatrix=glm::translate(modelMatrix,entities[0].position);
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-            program.SetModelMatrix(modelMatrix);
-            DrawText(font, "Player 2 Wins", TILE_SIZE, 0.0005);
+            mode=GAME_OVER;
+            winner=1;
         }
         else if (!entities[1].aliveFlag){
-            modelMatrix = glm::mat4(1.0f);
-            modelMatrix=glm::translate(modelMatrix,entities[0].position);
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-            program.SetModelMatrix(modelMatrix);
-            DrawText(font, "Player 1 Wins", TILE_SIZE, 0.0005);
+            mode=GAME_OVER;
+            winner=0;
         }
     }
 
@@ -647,7 +670,7 @@ void renderUI(){
 }
 
 void intialSpawn(){
-    //generate 4 player
+    //generate 2 player
     srand(time(0));
     vector <int> positions;
     for (int i=0;i<2;i++){
@@ -670,19 +693,8 @@ void intialSpawn(){
                     break;
                 }
             }
-//        }else{
-//            cout<<"bot"<<endl;
-//            for (int i=LEVEL_HEIGHT-1;i>0;i--){
-//                if(map.mapData[i][randomX]==704 && map.mapData[i][randomX]==257 && map.mapData[i][randomX]==203){
-//                    FlareMapEntity someEntity;
-//                    someEntity.x=randomX;
-//                    someEntity.y=i;
-//                    map.entities.push_back(someEntity);
-//                    break;
-//                }
-            }
         }
-
+    }
     convertFlareEntity();
 }
 
@@ -757,7 +769,7 @@ void renderMap(){
 
 void setUp(){
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("XCOM Worms", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 576, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("One-Hit", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 576, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
     
@@ -792,12 +804,19 @@ void setUp(){
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     
-    map.Load(RESOURCE_FOLDER"level1.txt");
     mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
     characters=LoadTexture(RESOURCE_FOLDER"sprites.png");
     font=LoadTexture(RESOURCE_FOLDER"font2.png");
     weapons=LoadTexture(RESOURCE_FOLDER"combat.png");
-
+    map1=LoadTexture(RESOURCE_FOLDER"map1.png");
+    map2=LoadTexture(RESOURCE_FOLDER"map2.png");
+    map3=LoadTexture(RESOURCE_FOLDER"map3.png");
+    menuMusic=Mix_LoadMUS("menuMusic.mp3");
+    gameMusic=Mix_LoadMUS("gameMusic.mp3");
+    shootBullet=Mix_LoadWAV("awpSound.wav");
+    
+    
+    
     SheetSprite* model_1_1 = new SheetSprite(characters,0.0f/32.0f, 16.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
     character1.push_back(model_1_1);
     SheetSprite* model_1_2 = new SheetSprite(characters,10.0f/32.0f, 0.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
@@ -838,14 +857,29 @@ void setUp(){
 }
 
 void cameraMovement(){
-    viewMatrix = glm::mat4(1.0f);
-    viewMatrix=glm::translate(viewMatrix,-combat[3].position);
-    viewMatrix=glm::translate(viewMatrix,glm::vec3(0.0,-0.35,0.0));
-    viewMatrix=glm::scale(viewMatrix,glm::vec3(1.0f,0.85,1.0f));
-    program.SetViewMatrix(viewMatrix);
+    if (mapSelect==1){
+        viewMatrix = glm::mat4(1.0f);
+        viewMatrix=glm::translate(viewMatrix,-combat[3].position);
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(0.0,-0.35,0.0));
+        viewMatrix=glm::scale(viewMatrix,glm::vec3(1.0f,0.85,1.0f));
+        program.SetViewMatrix(viewMatrix);
+    }else if(mapSelect!=1){
+        viewMatrix = glm::mat4(1.0f);
+        viewMatrix=glm::translate(viewMatrix,-combat[3].position);
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(0.0,-0.15,0.0));
+        viewMatrix=glm::scale(viewMatrix,glm::vec3(1.0f,0.85,1.0f));
+        program.SetViewMatrix(viewMatrix);
+    }
 }
 
 void gameSetUp(){
+    if (mapSelect==1){
+        map.Load(RESOURCE_FOLDER"level1.txt");
+    }else if (mapSelect==2){
+        map.Load(RESOURCE_FOLDER"level2.txt");
+    }else if (mapSelect==3){
+        map.Load(RESOURCE_FOLDER"level3.txt");
+    }
     renderMap();
     intialSpawn();
     setUpCount++;
@@ -854,14 +888,25 @@ void gameSetUp(){
 void renderGameLevel(){
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    
     if (setUpCount==0){
         gameSetUp();
     }
+    
     renderMap();
     cameraMovement();
     renderUI();
     for (Entity& someEntity:entities){
         someEntity.render();
+    }
+
+    if (startTimer>1.0f){
+        string timeString=std::to_string(int(startTimer));
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[3].position);
+        modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,1.0f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        DrawText(font, timeString, 0.25, 0.0005);
     }
 }
 
@@ -880,10 +925,10 @@ void renderGameMenu(){
     glDrawArrays(GL_TRIANGLES, 0, 6);
     
     modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.6f,0.5f,1.0f));
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.4f,0.5f,1.0f));
     modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
     program.SetModelMatrix(modelMatrix);
-    DrawText(font, "One-Hit K.O", 0.25f,0.0005f);
+    DrawText(font, "One-Hit", 0.25f,0.0005f);
     
     modelMatrix = glm::mat4(1.0f);
     modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.25f,0.0f,1.0f));
@@ -903,30 +948,149 @@ void renderMapSelect(){
     glClearColor(0, 0, 0, 1.0f);
     
     float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
-    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
-    glEnableVertexAttribArray(program1.positionAttribute);
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program.positionAttribute);
+    float texCoords[] = {0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0};
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+    glEnableVertexAttribArray(program.texCoordAttribute);
     
-    program1.SetColor(0.824f,0.839f,0.851f, 1.0f);
+    glBindTexture(GL_TEXTURE_2D, map1);
     modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
-    program1.SetModelMatrix(modelMatrix);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.60f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     
+    glBindTexture(GL_TEXTURE_2D, map2);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.0f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    glBindTexture(GL_TEXTURE_2D, map3);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(0.60f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
     modelMatrix = glm::mat4(1.0f);
     modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.80f,0.5f,1.0f));
     modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
     program.SetModelMatrix(modelMatrix);
     DrawText(font, "Select Your Map", 0.25f,0.0005f);
     
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.25f,0.0f,1.0f));
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    DrawText(font, "Start", 0.25f,0.0005f);
+
+    
     
     glDisableVertexAttribArray(program.positionAttribute);
     glDisableVertexAttribArray(program.texCoordAttribute);
     glDisableVertexAttribArray(program1.positionAttribute);
+}
+
+void renderPause(){
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    renderMap();
+    cameraMovement();
+    for (Entity& someEntity:entities){
+        someEntity.render();
+    }
+    
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program1.positionAttribute);
+    
+    program1.SetColor(0.8,0.95,0.58, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.3f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    program1.SetColor(1.0,0.44,0.38, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.35,0.25f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Restart", 0.075, 0.0005);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.1,-0.10,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Quit", 0.075, 0.0005);
+}
+
+void renderGameOver(){
+    float offset=0;
+    if (mapSelect!=1){
+        offset=0.25f;
+    }
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    renderMap();
+    cameraMovement();
+    for (Entity& someEntity:entities){
+        someEntity.render();
+    }
+    
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program1.positionAttribute);
+    
+    program1.SetColor(0.8,0.95,0.58, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.3f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    program1.SetColor(1.0,0.44,0.38, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.35,0.25f-offset,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Play Again", 0.075, 0.0005);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.1,-0.10-offset,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Quit", 0.075, 0.0005);
+    
+    if (winner==1){
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[3].position);
+        modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.5f,1.0f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        DrawText(font,"Player 2 Wins!", 0.075, 0.0005);
+    }else{
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[3].position);
+        modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.5f,1.2f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        DrawText(font,"Player 1 Wins!", 0.075, 0.0005);
+    }
+    
 }
 
 
@@ -941,16 +1105,16 @@ void Render(){
         case GAME_LEVEL:
             renderGameLevel();
             break;
-        case PAUSE:
-            //renderPause();
-            break;
         case GAME_OVER:
-            //renderGameOver();
+            renderGameOver();
             break;
     }
 }
 
 void update(float elapsed){
+    if (startTimer>1.0f){
+        startTimer-=elapsed;
+    }
     for (Entity& someEntity:entities){
         someEntity.update(elapsed);
     }
@@ -959,12 +1123,29 @@ void update(float elapsed){
     }
 }
 
+void reset(){
+    startTimer=4.0f;
+    setUpCount=0;
+    viewMatrix = glm::mat4(1.0f);
+    program.SetViewMatrix(viewMatrix);
+    program1.SetViewMatrix(viewMatrix);
+    character1.clear();
+    entities.clear();
+    map.entities.clear();
+    combat[1].position=glm::vec3(100);
+    combat[2].position=glm::vec3(100);
+    combat[1].aliveFlag=false;
+    combat[2].aliveFlag=false;
+    combat[1].shotFlag=true;
+    combat[2].shotFlag=true;
+}
+
 
 int main(int argc, char *argv[])
 {
-    
     setUp();
-    //renderGameLevel();
+    Mix_PlayMusic(menuMusic, -1);
+
 
     float accumulator = 0.0f;
     float lastFrameTicks=0.0f;
@@ -976,7 +1157,6 @@ int main(int argc, char *argv[])
             if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
                 done = true;
             }
-            
             if(event.type == SDL_MOUSEMOTION) {
                 mouseX = (((float)event.motion.x / 640.0f) * 3.554f ) - 1.777f;
                 mouseY = (((float)(360-event.motion.y) / 360.0f) * 2.0f ) - 1.0f;
@@ -988,11 +1168,37 @@ int main(int argc, char *argv[])
                 }
             }
             else if (event.type==SDL_MOUSEBUTTONDOWN && mode==MAP_SELECT) {
-                if(mouseX>START_BOX_Left && mouseX<START_BOX_RIGHT && mouseY>START_BOX_BOTTOM && mouseY<START_BOX_TOP){
+                if(mouseX>MAP1_LEFT && mouseX<MAP1_RIGHT && mouseY>MAP1_BOT && mouseY<MAP1_TOP){
+                    mapSelect=1;
+                    mode=GAME_LEVEL;
+                }else if(mouseX>MAP1_LEFT+0.95f && mouseX<MAP1_RIGHT+0.95f && mouseY>MAP1_BOT && mouseY<MAP1_TOP){
+                    mapSelect=2;
                     mode=GAME_LEVEL;
                 }
+                else if(mouseX>MAP1_LEFT+1.9f && mouseX<MAP1_RIGHT+1.9f && mouseY>MAP1_BOT && mouseY<MAP1_TOP){
+                    mapSelect=3;
+                    mode=GAME_LEVEL;
+                }
+                Mix_HaltMusic();
+                Mix_PlayMusic(gameMusic, -1);
+                Mix_VolumeMusic(70);
+            }else if (event.type==SDL_MOUSEBUTTONDOWN && mode==GAME_OVER) {
+                Mix_HaltMusic();
+                Mix_PlayMusic(menuMusic, -1);
+                Mix_VolumeMusic(90);
+                if(mouseX>TILED_BOX_LEFT1 && mouseX<TILED_BOX_RIGHT1 && mouseY>TILED_BOX_BOT1 && mouseY<TILED_BOX_TOP1){
+                    reset();
+                    mode=MAP_SELECT;
+                }else if(mouseX>TILED_BOX_LEFT2 && mouseX<TILED_BOX_RIGHT2 && mouseY>TILED_BOX_BOT2 && mouseY<TILED_BOX_TOP2){
+                    Mix_FreeMusic(menuMusic);
+                    Mix_FreeMusic(gameMusic);
+                    Mix_FreeChunk(shootBullet);
+                    SDL_Quit();
+                    return 0;
+                }
+            }else if (event.type==SDL_MOUSEBUTTONDOWN && mode==GAME_OVER) {
+                
             }
-            
         }
         //game tick system
         float ticks=(float)SDL_GetTicks()/1000.0f;
@@ -1003,10 +1209,11 @@ int main(int argc, char *argv[])
         elapsed += accumulator;
         if(elapsed < FIXED_TIMESTEP) {
             accumulator = elapsed;
-            continue; }
+            continue;
+        }
         
         while(elapsed >= FIXED_TIMESTEP) {
-            if (mode==GAME_LEVEL && setUpCount!=0){
+            if ((mode==GAME_LEVEL) && setUpCount!=0){
                 update(FIXED_TIMESTEP);
             }
             elapsed -= FIXED_TIMESTEP;
@@ -1016,9 +1223,9 @@ int main(int argc, char *argv[])
         SDL_GL_SwapWindow(displayWindow);
     }
     
-    
-
-
+    Mix_FreeMusic(menuMusic);
+    Mix_FreeMusic(gameMusic);
+    Mix_FreeChunk(shootBullet);
     SDL_Quit();
     return 0;
 }
