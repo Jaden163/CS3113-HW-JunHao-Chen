@@ -26,6 +26,18 @@
 		CF40370F2289B34D00420A43 /* SatCollision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CF40370D2289B34D00420A43 /* SatCollision.cpp */; };
 		CF5E3E27227F921D00440705 /* level1.txt in Resources */ = {isa = PBXBuildFile; fileRef = CF5E3E26227F921D00440705 /* level1.txt */; };
 		CF5E3E29227F923A00440705 /* font2.png in Resources */ = {isa = PBXBuildFile; fileRef = CF5E3E28227F923900440705 /* font2.png */; };
+		CF9F8F1A228B9F950097C976 /* level2.txt in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F19228B9F950097C976 /* level2.txt */; };
+		CF9F8F22228BAC460097C976 /* map1.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F1F228BAC460097C976 /* map1.png */; };
+		CF9F8F23228BAC460097C976 /* map2.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F20228BAC460097C976 /* map2.png */; };
+		CF9F8F24228BAC460097C976 /* map3.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F21228BAC460097C976 /* map3.png */; };
+		CF9F8F2A228BB3BB0097C976 /* SDL2_mixer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CF9F8F29228BB3BB0097C976 /* SDL2_mixer.framework */; };
+		CF9F8F32228BB99E0097C976 /* menuMusic.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F31228BB99E0097C976 /* menuMusic.mp3 */; };
+		CF9F8F34228BBB570097C976 /* gameMusic.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F33228BBB570097C976 /* gameMusic.mp3 */; };
+		CF9F8F38228BC2750097C976 /* test.wav in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F37228BC2750097C976 /* test.wav */; };
+		CF9F8F3A228BC3220097C976 /* awpSound.wav in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F39228BC3220097C976 /* awpSound.wav */; };
+		CF9F8F42228BDEB60097C976 /* character2.xml in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F40228BDEB60097C976 /* character2.xml */; };
+		CF9F8F43228BDEB60097C976 /* character2.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F41228BDEB60097C976 /* character2.png */; };
+		CF9F8F45228BE1800097C976 /* level3.txt in Resources */ = {isa = PBXBuildFile; fileRef = CF9F8F44228BE1800097C976 /* level3.txt */; };
 		CFDF75AB2263FAD900FAF20D /* FlareMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CFDF75A92263FAD800FAF20D /* FlareMap.cpp */; };
 		CFDF75B5226420A900FAF20D /* minecraft_Sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */; };
 /* End PBXBuildFile section */
@@ -56,6 +68,18 @@
 		CF40370E2289B34D00420A43 /* SatCollision.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SatCollision.h; sourceTree = "<group>"; };
 		CF5E3E26227F921D00440705 /* level1.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = level1.txt; sourceTree = "<group>"; };
 		CF5E3E28227F923900440705 /* font2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = font2.png; sourceTree = "<group>"; };
+		CF9F8F19228B9F950097C976 /* level2.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = level2.txt; sourceTree = "<group>"; };
+		CF9F8F1F228BAC460097C976 /* map1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = map1.png; sourceTree = "<group>"; };
+		CF9F8F20228BAC460097C976 /* map2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = map2.png; sourceTree = "<group>"; };
+		CF9F8F21228BAC460097C976 /* map3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = map3.png; sourceTree = "<group>"; };
+		CF9F8F29228BB3BB0097C976 /* SDL2_mixer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2_mixer.framework; path = ../../../../Library/Frameworks/SDL2_mixer.framework; sourceTree = "<group>"; };
+		CF9F8F31228BB99E0097C976 /* menuMusic.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = menuMusic.mp3; sourceTree = "<group>"; };
+		CF9F8F33228BBB570097C976 /* gameMusic.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = gameMusic.mp3; sourceTree = "<group>"; };
+		CF9F8F37228BC2750097C976 /* test.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = test.wav; sourceTree = "<group>"; };
+		CF9F8F39228BC3220097C976 /* awpSound.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = awpSound.wav; sourceTree = "<group>"; };
+		CF9F8F40228BDEB60097C976 /* character2.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = character2.xml; sourceTree = "<group>"; };
+		CF9F8F41228BDEB60097C976 /* character2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = character2.png; sourceTree = "<group>"; };
+		CF9F8F44228BE1800097C976 /* level3.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = level3.txt; sourceTree = "<group>"; };
 		CFDF75A92263FAD800FAF20D /* FlareMap.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FlareMap.cpp; sourceTree = "<group>"; };
 		CFDF75AA2263FAD900FAF20D /* FlareMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FlareMap.h; sourceTree = "<group>"; };
 		CFDF75B3226420A900FAF20D /* minecraft_Sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = minecraft_Sprite.png; sourceTree = "<group>"; };
@@ -67,6 +91,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6D5AC2D019AE6280004CB1BF /* OpenGL.framework in Frameworks */,
+				CF9F8F2A228BB3BB0097C976 /* SDL2_mixer.framework in Frameworks */,
 				6D5A86AE19AE5C710066C1FD /* Cocoa.framework in Frameworks */,
 				6D5A86E319AE5CD10066C1FD /* SDL2.framework in Frameworks */,
 				6D5AC2D219AE6A1E004CB1BF /* SDL2_image.framework in Frameworks */,
@@ -96,6 +121,7 @@
 		6D5A86AC19AE5C710066C1FD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CF9F8F29228BB3BB0097C976 /* SDL2_mixer.framework */,
 				6D5AC2D119AE6A1E004CB1BF /* SDL2_image.framework */,
 				6D5AC2CF19AE6280004CB1BF /* OpenGL.framework */,
 				6D5A86E219AE5CD10066C1FD /* SDL2.framework */,
@@ -149,10 +175,21 @@
 				CF5E3E26227F921D00440705 /* level1.txt */,
 				CF40370722891C3900420A43 /* combat.png */,
 				CF4037042289177300420A43 /* combat.xml */,
+				CF9F8F41228BDEB60097C976 /* character2.png */,
+				CF9F8F44228BE1800097C976 /* level3.txt */,
+				CF9F8F37228BC2750097C976 /* test.wav */,
 				CF40370B22892D6D00420A43 /* sprites.png */,
 				CF5E3E28227F923900440705 /* font2.png */,
+				CF9F8F39228BC3220097C976 /* awpSound.wav */,
+				CF9F8F33228BBB570097C976 /* gameMusic.mp3 */,
 				CF40370D2289B34D00420A43 /* SatCollision.cpp */,
+				CF9F8F31228BB99E0097C976 /* menuMusic.mp3 */,
+				CF9F8F1F228BAC460097C976 /* map1.png */,
+				CF9F8F20228BAC460097C976 /* map2.png */,
+				CF9F8F21228BAC460097C976 /* map3.png */,
+				CF9F8F19228B9F950097C976 /* level2.txt */,
 				CF40370E2289B34D00420A43 /* SatCollision.h */,
+				CF9F8F40228BDEB60097C976 /* character2.xml */,
 				6D5A86B919AE5C710066C1FD /* main.cpp */,
 			);
 			name = Code;
@@ -213,16 +250,27 @@
 			files = (
 				CF5E3E29227F923A00440705 /* font2.png in Resources */,
 				CF40370822891C3900420A43 /* combat.png in Resources */,
+				CF9F8F38228BC2750097C976 /* test.wav in Resources */,
+				CF9F8F24228BAC460097C976 /* map3.png in Resources */,
 				CF5E3E27227F921D00440705 /* level1.txt in Resources */,
 				6D5A86B819AE5C710066C1FD /* InfoPlist.strings in Resources */,
+				CF9F8F42228BDEB60097C976 /* character2.xml in Resources */,
 				6DEF23C11B96CC2600BCE792 /* fragment.glsl in Resources */,
 				CF40370C22892D6D00420A43 /* sprites.png in Resources */,
 				6DE9D2F11BA6AB8C002D599C /* fragment_textured.glsl in Resources */,
 				CF4037062289177300420A43 /* combat.xml in Resources */,
+				CF9F8F1A228B9F950097C976 /* level2.txt in Resources */,
+				CF9F8F22228BAC460097C976 /* map1.png in Resources */,
+				CF9F8F32228BB99E0097C976 /* menuMusic.mp3 in Resources */,
+				CF9F8F45228BE1800097C976 /* level3.txt in Resources */,
 				6D5A86C619AE5C710066C1FD /* Images.xcassets in Resources */,
+				CF9F8F43228BDEB60097C976 /* character2.png in Resources */,
+				CF9F8F3A228BC3220097C976 /* awpSound.wav in Resources */,
+				CF9F8F23228BAC460097C976 /* map2.png in Resources */,
 				6D5A86BE19AE5C710066C1FD /* Credits.rtf in Resources */,
 				6DEF23C41B96CC2600BCE792 /* vertex.glsl in Resources */,
 				6DC7076A1BA7273500225B7D /* vertex_textured.glsl in Resources */,
+				CF9F8F34228BBB570097C976 /* gameMusic.mp3 in Resources */,
 				CFDF75B5226420A900FAF20D /* minecraft_Sprite.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -341,6 +389,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(PROJECT_DIR)",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
@@ -349,6 +398,7 @@
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					/Library/Frameworks/SDL2_image.framework/Versions/A/Headers,
 					/Library/Frameworks/SDL2.framework/Versions/A/Headers,
+					/Library/Frameworks/SDL2_mixer.framework/Versions/A/Headers,
 				);
 				INFOPLIST_FILE = "NYUCodebase/NYUCodebase-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -364,6 +414,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(PROJECT_DIR)",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";

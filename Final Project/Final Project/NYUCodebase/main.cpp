@@ -7,13 +7,13 @@
 #include <SDL_image.h>
 #include "ShaderProgram.h"
 #include "glm/mat4x2.hpp"
+#include <SDL_mixer.h>
 #include "glm/gtc/matrix_transform.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "FlareMap.h"
 #include <random>
-#include <math.h>
-#include <SatCollision.h>
+
 
 #ifdef _WINDOWS
 #define RESOURCE_FOLDER ""
@@ -21,14 +21,33 @@
 #define RESOURCE_FOLDER "NYUCodebase.app/Contents/Resources/"
 #endif
 
+
 #define LEVEL_WIDTH 55
 #define LEVEL_HEIGHT 40
 #define SPRITE_COUNT_X 32
 #define SPRITE_COUNT_Y 32
 #define FIXED_TIMESTEP 0.0166666f
 #define TILE_SIZE 1/16.0f
-#define THREE_TEXT_OFFSET 0.05f
-#define TWO_TEXT_OFFSET 0.030f
+
+//UI interface data
+#define START_BOX_Left 0.26655f
+#define START_BOX_TOP -0.422222f
+#define START_BOX_BOTTOM -0.8f
+#define START_BOX_RIGHT 1.8603
+#define TILED_BOX_LEFT1 0.26655f
+#define TILED_BOX_RIGHT1 1.8603
+#define TILED_BOX_BOT1 -0.738889
+#define TILED_BOX_TOP1 -0.333333f
+#define TILED_BOX_LEFT2 0.26655f
+#define TILED_BOX_RIGHT2 1.8603f
+#define TILED_BOX_BOT2  -1.2f
+#define TILED_BOX_TOP2 -0.8111111f
+#define MAP1_LEFT -0.294316
+#define MAP1_RIGHT 0.505334
+#define MAP1_TOP -0.2f
+#define MAP1_BOT -1.01111
+
+
 
 
 using namespace std;
@@ -45,25 +64,45 @@ ShaderProgram program1;
 const Uint8 *keys=SDL_GetKeyboardState(NULL);
 //initialize textsheet
 GLuint characters;
+GLuint character2;
 GLuint mineCraft;
 GLuint font;
 GLuint weapons;
+GLuint map1;
+GLuint map2;
+GLuint map3;
 // initialize matrix
 glm::mat4 modelMatrix = glm::mat4(1.0f);
 glm::mat4 viewMatrix = glm::mat4(1.0f);
 // initialze map
 FlareMap map;
-// initialize who's turn it is
-int turnIndex=0;
-
+//initialize mouse positions
+float mouseX;
+float mouseY;
+//misc
+int setUpCount=0;
+int winner=0;
+int mapSelect=0;
+float startTimer=4.0;
+//audio stuff
+int audio=Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 4096 );
+Mix_Music* menuMusic;
+Mix_Music* gameMusic;
+Mix_Chunk* shootBullet;
 
 
 class SheetSprite;
 class Entity;
 std::vector <Entity> entities;
-std::vector <Entity> combatElements;
-//initialize sprite index from xml for character models
+std::vector <Entity> combat;
+//initialize sprite index from xml for character animation
 vector<SheetSprite*> character1;
+vector<SheetSprite*> character2Vec;
+
+
+
+enum GameMode {MAIN_MENU,MAP_SELECT,GAME_LEVEL,GAME_OVER};
+GameMode mode=MAIN_MENU;
 
 
 
@@ -71,6 +110,101 @@ float lerp(float v0, float v1, float t) {
     return (1.0-t)*v0 + t*v1;
 }
 
+//particle stuff
+class Particle {
+public:
+    Particle() {};
+    glm::vec3 position;
+    glm::vec3 velocity;
+    float lifetime;
+    float sizeDeviation;
+    float rotation;
+};
+
+class ParticleEmitter {
+public:
+    ParticleEmitter(unsigned int particleCount) {};
+    ParticleEmitter() {};
+    ~ParticleEmitter() {};
+    
+    void Update(float elapsed);
+    void Render();
+    
+    glm::vec3 position;
+    glm::vec3 velocity=glm::vec3(0.0f, 2.0f, 0.0f);
+    glm::vec3 velocityDeviation=glm::vec3(1.0f,0.0f,0.0f);
+    glm::vec3 gravity=glm::vec3(0.0f, -4.0f, 0.0f);
+    
+    float startSize=0.01;
+    float endSize=0.05;
+    float sizeDeviation=0.01;
+    
+    float maxLifetime=1;
+    std::vector<Particle> particles;
+};
+
+void ParticleEmitter::Render() {
+    std::vector<float> vertices;
+    std::vector<float> particleColors;
+    for(int i=0; i < particles.size(); i++) {
+        float m = (particles[i].lifetime/maxLifetime);
+        float size = lerp(startSize, endSize, m) + particles[i].sizeDeviation;
+        float cosTheta = cosf(particles[i].rotation);
+        float sinTheta = sinf(particles[i].rotation);
+        float TL_x = cosTheta * -size - sinTheta * size;
+        float TL_y = sinTheta * -size + cosTheta * size;
+        float BL_x = cosTheta * -size - sinTheta * -size;
+        float BL_y = sinTheta * -size + cosTheta * -size;
+        float BR_x = cosTheta * size - sinTheta * -size;
+        float BR_y = sinTheta * size + cosTheta * -size;
+        float TR_x = cosTheta * size - sinTheta * size;
+        float TR_y = sinTheta * size + cosTheta * size;
+        vertices.insert(vertices.end(), {
+            particles[i].position.x + TL_x, particles[i].position.y + TL_y,
+            particles[i].position.x + BL_x, particles[i].position.y + BL_y,
+            particles[i].position.x + TR_x, particles[i].position.y + TR_y,
+            particles[i].position.x + TR_x, particles[i].position.y + TR_y,
+            particles[i].position.x + BL_x, particles[i].position.y + BL_y,
+            particles[i].position.x + BR_x, particles[i].position.y + BR_y
+        });
+        particles[i].rotation += 0.1;
+    }
+    glUseProgram(program1.programID);
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices.data());
+    glEnableVertexAttribArray(program1.positionAttribute);
+    modelMatrix = glm::mat4(1.0f);
+    program1.SetModelMatrix(modelMatrix);
+    program1.SetColor(1.0f,0.8f,0.80f, 1.0f);
+    glDrawArrays(GL_TRIANGLES, 0, vertices.size()/2);
+    glUseProgram(program.programID);
+}
+
+void ParticleEmitter::Update(float elapsed) {
+    srand(time(0));
+    //random lifetime,velocity,size
+    float random=0;
+    for (Particle &particle : particles) {
+        random=rand()%100;
+        if (int(random)%2==0){
+            random=-random;
+        }
+        random=random/100;
+        particle.velocity.x += gravity.x * elapsed;
+        particle.velocity.y += gravity.y * elapsed;
+        particle.position.x += particle.velocity.x * elapsed;
+        particle.position.y += particle.velocity.y * elapsed;
+        if (particle.lifetime > maxLifetime) {
+            particle.position = position;
+            particle.lifetime -= maxLifetime;
+            particle.velocity.x = velocity.x + random;
+            particle.velocity.y = velocity.y;
+        }
+        particle.lifetime += elapsed;
+    }
+}
+
+//initialize a particle emitter
+ParticleEmitter particleSources[1];
 
 class SheetSprite {
 public:
@@ -167,6 +301,7 @@ class Entity{
 public:
     
     void render(){
+        
         if (aliveFlag){
             modelMatrix = glm::mat4(1.0f);
             modelMatrix=glm::translate(modelMatrix,position);
@@ -178,41 +313,11 @@ public:
             program.SetModelMatrix(modelMatrix);
             sprite.Draw();
             
-            if (&entities[turnIndex]!=this ){
-                string hpString=std::to_string(hp);
-                modelMatrix = glm::mat4(1.0f);
-                modelMatrix=glm::translate(modelMatrix,position);
-                if (hpString.size()==3){
-                    modelMatrix=glm::translate(modelMatrix,glm::vec3((-THREE_TEXT_OFFSET),0.075f,0.0f));
-                }else if (hpString.size()==2){
-                    modelMatrix=glm::translate(modelMatrix,glm::vec3((-TWO_TEXT_OFFSET),0.075f,0.0f));
-                }else{
-                    modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0f,0.075f,0.0f));
-                }
-                program.SetModelMatrix(modelMatrix);
-                DrawText(font, hpString, TILE_SIZE, 0.0005);
-            }
-        }
-        
-        if (&entities[turnIndex]==this && currentMode==ATTACK){
-            // draw direction arrow
+            //draw gun attached to character model
             modelMatrix = glm::mat4(1.0f);
-            combatElements[0].position=position;
-            modelMatrix=glm::translate(modelMatrix,combatElements[0].position);
-            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
-            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,-0.085,0.0));
-            modelMatrix = glm::rotate(modelMatrix, combatElements[0].rotation, glm::vec3(0.0f, 0.0f, 1.0f));
-            modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,0.085,0.0));
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(2.0f,1.5f,1.0f));
-            program.SetModelMatrix(modelMatrix);
-            combatElements[0].sprite.Draw();
-            
-            //draw gun
-            modelMatrix = glm::mat4(1.0f);
-            combatElements[1].position=position;
-            combatElements[1].faceLeftFlag=faceLeftFlag;
-            modelMatrix=glm::translate(modelMatrix,combatElements[1].position);
+            combat[0].position=position;
+            combat[0].faceLeftFlag=faceLeftFlag;
+            modelMatrix=glm::translate(modelMatrix,combat[0].position);
             if (faceLeftFlag){
                 modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.02,0.0,0.0));
                 modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
@@ -222,159 +327,177 @@ public:
             }
             modelMatrix=glm::scale(modelMatrix,glm::vec3(0.45f,0.45f,1.0f));
             program.SetModelMatrix(modelMatrix);
-            combatElements[1].sprite.Draw();
-            
-            // draw bullet
-            modelMatrix = glm::mat4(1.0f);
-            modelMatrix=glm::translate(modelMatrix,combatElements[2].position);
-            modelMatrix = glm::rotate(modelMatrix, combatElements[2].rotation, glm::vec3(0.0f, 0.0f, 1.0f));
-            if (faceLeftFlag){
-                modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
-            }else{
-                modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
-            }
-            modelMatrix=glm::scale(modelMatrix,glm::vec3(0.55f,0.55f,1.0f));
-            program.SetModelMatrix(modelMatrix);
-            combatElements[2].sprite.Draw();
-            
+            combat[0].sprite.Draw();
         }
         
+        // draw bullets
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[1].position);
+        float rotation= 90*(3.14159/180);
+        modelMatrix=glm::rotate(modelMatrix, rotation , glm::vec3(0.0f,0.0f,1.0f));
+        if (faceLeftFlag){
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
+        }else{
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+        }
+        modelMatrix=glm::scale(modelMatrix,glm::vec3(0.55f,0.55f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        combat[1].sprite.Draw();
         
-
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[2].position);
+        modelMatrix=glm::rotate(modelMatrix, rotation , glm::vec3(0.0f,0.0f,1.0f));
+        if (faceLeftFlag){
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(-TILE_SIZE,TILE_SIZE,1.0f));
+        }else{
+            modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE,TILE_SIZE,1.0f));
+        }
+        modelMatrix=glm::scale(modelMatrix,glm::vec3(0.55f,0.55f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        combat[2].sprite.Draw();
+        
     }
 
     void update(float elapsed){
         
+        checkVictory();
         if (entityType==PLAYER1 || entityType==PLAYER2){
-            if (turnTimer<=0.0f){
-                turnTimer=5.0f;
-                if(currentMode==MOVE && attackFlag){
-                    currentMode=ATTACK;
-                } else if (!moveFlag && !attackFlag){
-                    moveFlag=true;
-                    attackFlag=true;
-                    nextTurn();
-                }
-            }
             
             if (aliveFlag){
+                
                 // gravity affecting all entities
                 velocity.y += gravity.y * elapsed;
-                
-                // check collision against other entioties
-                for (int i=0;i<9;i++){
-                    if(checkEntityCollision(entities[i])){
-                        if ((position.y - entities[i].position.y) > size.y/2*TILE_SIZE){
-                            //entities[i].position.x=100.0f;
-                        }
-                    }
-                }
                 
                 // friction
                 velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
                 velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
             
-                if (&entities[turnIndex]==this && (moveFlag || currentMode==MOVE)){
-                    if (keys[SDL_SCANCODE_UP] && botFlag){
+                if (entityType==PLAYER2 && startTimer<1.0f){
+        
+                    if (keys[SDL_SCANCODE_I] && botFlag){
                         //only jump if botFlag is set
                         velocity.y+=30.0f*elapsed;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
-                    if (keys[SDL_SCANCODE_RIGHT]){
+                    if (keys[SDL_SCANCODE_L]){
                         velocity.x+=0.5f*elapsed;
                         faceLeftFlag=false;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
                     
-                    if (keys[SDL_SCANCODE_LEFT]){
+                    if (keys[SDL_SCANCODE_J]){
                         velocity.x-=0.5f*elapsed;
                         faceLeftFlag=true;
-                        moveFlag=false;
-                        currentMode=MOVE;
                     }
-                    if (currentMode!=IDLE){
-                        turnTimer-=elapsed;
-                    }
-                }else if(&entities[turnIndex]==this && currentMode==ATTACK){
-                    if (keys[SDL_SCANCODE_RIGHT]){
-                        combatElements[0].rotation -= 90 * (3.1415926f / 180.0f)*elapsed ;
-                        faceLeftFlag=false;
-                    }
-                     if (keys[SDL_SCANCODE_LEFT]){
-                         combatElements[0].rotation += 90 * (3.1415926f / 180.0f)*elapsed ;
-                         faceLeftFlag=true;
-                     }
-                    if (keys[SDL_SCANCODE_SPACE]){
-                        combatElements[2].position=combatElements[0].position;
-                        combatElements[2].faceLeftFlag=faceLeftFlag;
-                        combatElements[2].aliveFlag=true;
-                        combatElements[2].rotation=combatElements[0].rotation;
+                    if (keys[SDL_SCANCODE_RETURN] && combat[2].shotFlag){
+                        Mix_VolumeChunk(shootBullet, 10);
+                        Mix_PlayChannel( 1, shootBullet, 0);
+                        combat[2].shotFlag=false;
+                        combat[2].position=position;
+                        combat[2].faceLeftFlag=faceLeftFlag;
+                        combat[2].aliveFlag=true;
                         
                         if (faceLeftFlag){
-                            combatElements[2].position.x-=0.04;
+                            combat[2].position.x-=0.04;
                         }else{
-                            combatElements[2].position.x+=0.04;
+                            combat[2].position.x+=0.04;
+                        }
+                    }
+                }else if (entityType==PLAYER1 && startTimer<1.0f){
+                    if (keys[SDL_SCANCODE_W] && botFlag){
+                        //only jump if botFlag is set
+                        velocity.y+=30.0f*elapsed;
+                    }
+                    if (keys[SDL_SCANCODE_D]){
+                        velocity.x+=0.5f*elapsed;
+                        faceLeftFlag=false;
+                    }
+                    
+                    if (keys[SDL_SCANCODE_A]){
+                        velocity.x-=0.5f*elapsed;
+                        faceLeftFlag=true;
+                    }
+                    if (keys[SDL_SCANCODE_SPACE] && combat[1].shotFlag){
+                        Mix_VolumeChunk(shootBullet, 10);
+                        Mix_PlayChannel( 1, shootBullet, 0);
+                        combat[1].shotFlag=false;
+                        combat[1].position=position;
+                        combat[1].faceLeftFlag=faceLeftFlag;
+                        combat[1].aliveFlag=true;
+                        
+                        if (faceLeftFlag){
+                            combat[1].position.x-=0.04;
+                        }else{
+                            combat[1].position.x+=0.04;
                         }
                     }
                 }
 
+                    //position updates
+                    position.y+=velocity.y*elapsed;
+                    checkYCollisionMap();
+                    position.x+=velocity.x*elapsed;
+                    checkXCollisionMap();
                 
-                //position updates
-                position.y+=velocity.y*elapsed;
-                checkYCollisionMap();
-                position.x+=velocity.x*elapsed;
-                checkXCollisionMap();
-                
-                
-                //moving animation stuff
-                animationElapsed += elapsed;
-                if(animationElapsed > 1.0/framesPerSecond) {
-                    index++;
-                    animationElapsed = 0.0;
-                    if(index > 3) {
-                        index = 0;
+
+                    //moving animation stuff
+                    animationElapsed += elapsed;
+                    if(animationElapsed > 1.0/framesPerSecond) {
+                        index++;
+                        animationElapsed = 0.0;
+                        if(index > 3) {
+                            index = 0;
+                        }
                     }
-                }
-                if (abs(velocity.x)<=0.025){
-                    index=1;
-                }
-                sprite=*((*modelAnimation)[index]);
+                    if (abs(velocity.x)<=0.025){
+                        index=1;
+                    }
+                    sprite=*((*modelAnimation)[index]);
             }
             
-        }else if(entityType==BULLETS && aliveFlag){
+        }
+        
+        if(entityType==BULLETS && aliveFlag){
+            //check bullet against characters
+            if (this==&combat[2]){
+                if(checkEntityCollision(entities[0])){
+                    entities[0].aliveFlag=false;
+                    checkVictory();
+                }
+            }else if (this==&combat[1]){
+                if(checkEntityCollision(entities[1])){
+                    entities[1].aliveFlag=false;
+                    checkVictory();
+                }
+            }
+            
             if (faceLeftFlag){
-                position.x+=0.25*elapsed*cos(rotation);
-                position.y+=0.25*elapsed*sin(rotation);
+                position.x-=1.75*elapsed;
                 
             }else{
-                position.x+=0.25*elapsed;
-                position.y+=0.25*elapsed;
-
+                position.x+=1.75*elapsed;
             }
             checkYCollisionMap();
             if (botFlag || topFlag){
                 aliveFlag=false;
                 position=glm::vec3(100);
             }
-            checkXCollisionMap();
-            if (leftFlag || rightFlag){
-                aliveFlag=false;
-                position=glm::vec3(100);
+            if (aliveFlag){
+                checkXCollisionMap();
+                if (leftFlag || rightFlag){
+                    aliveFlag=false;
+                    position=glm::vec3(100);
+                }
             }
-            
         }
-        
     }
-    
 
     void checkYCollisionMap(){
+        checkVictory();
         checkBotCollisionMap();
         checkTopCollisionMap();
     }
     
     void checkXCollisionMap(){
+        checkVictory();
         checkRightCollisionMap();
         checkLeftCollisionMap();
     }
@@ -399,13 +522,9 @@ public:
     glm::vec3 gravity=glm::vec3(0.0f,-0.5f,0.0f);
     glm::vec3 friction=glm::vec3(1.0f,0.0f,0.0f);
     
-    int hp=100;
-    float rotation;
-    float turnTimer=3.0;
-    bool moveFlag=true;
-    bool attackFlag=true;
+    bool shotFlag=true;
     bool aliveFlag=true;
-    ModeType currentMode=IDLE;
+
     
 
     bool topFlag=false;
@@ -416,116 +535,161 @@ public:
     
 private:
     
+
+    
     void checkBotCollisionMap(){
-        int gridX = (int) (position.x / (TILE_SIZE));
-        int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
-        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
-            aliveFlag=false;
-            checkVictory();
-            nextTurn();
-        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
-            float penetration=fabs(((-TILE_SIZE*gridY)-(position.y-(size.y/2)*TILE_SIZE)));
-            position.y+=penetration;
-            velocity.y=0;
-            botFlag=true;
-        }else{
-            botFlag=false;
+        if (aliveFlag){
+            int gridX = (int) (position.x / (TILE_SIZE));
+            int gridY = (int)(position.y/(-TILE_SIZE)+size.y/2);
+            // dispawn if past world borders
+            if (entityType==BULLETS){
+                if (gridX<=0 && gridX>=LEVEL_WIDTH){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+                if (gridY<=0 && gridY>=LEVEL_HEIGHT){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+            }
+            // set death if collided with world hazards
+            if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+                aliveFlag=false;
+            // collisions against other tiles
+            }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
+                float penetration=fabs(((-TILE_SIZE*gridY)-(position.y-(size.y/2)*TILE_SIZE)));
+                position.y+=penetration;
+                velocity.y=0;
+                botFlag=true;
+                shotFlag=true;
+            }else{
+                botFlag=false;
+            }
         }
     }
     
     void checkTopCollisionMap(){
-        int gridX = (int) (position.x / (TILE_SIZE));
-        int gridY = (int)(position.y/(-TILE_SIZE)-size.y/2);
-        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
-            aliveFlag=false;
-            checkVictory();
-            nextTurn();
-        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
-            float penetration=fabs(((-TILE_SIZE*gridY)-(position.y+(size.y/2)*TILE_SIZE)));
-            // needed a little bit more to completely resolve penetration without stuttering camera movement
-            penetration-=0.05;
-            position.y-=penetration;
-            velocity.y=0;
-            topFlag=true;
-        }else{
-            topFlag=false;
+        if (aliveFlag){
+            int gridX = (int) (position.x / (TILE_SIZE));
+            int gridY = (int)(position.y/(-TILE_SIZE)-size.y/2);
+            if (entityType==BULLETS){
+                if (gridX<=0 && gridX>=LEVEL_WIDTH){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+                if (gridY<=0 && gridY>=LEVEL_HEIGHT){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+            }
+            if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+                aliveFlag=false;
+            }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
+                float penetration=fabs(((-TILE_SIZE*gridY)-(position.y+(size.y/2)*TILE_SIZE)));
+                // needed a little bit more to completely resolve penetration without stuttering camera movement
+                penetration-=0.05;
+                position.y-=penetration;
+                velocity.y=0;
+                topFlag=true;
+                shotFlag=true;
+            }else{
+                topFlag=false;
+            }
         }
     }
     
     void checkRightCollisionMap(){
-        int gridX = (int) (position.x / (TILE_SIZE) + size.y/2);
-        int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
-            aliveFlag=false;
-            checkVictory();
-            nextTurn();
-        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
-            float penetration=fabs(((TILE_SIZE*gridX)-position.x-(size.x/2)*TILE_SIZE));
-            position.x-=penetration;
-            rightFlag=true;
-            velocity.x=0;
-        }else{
-            rightFlag=false;
+        if (aliveFlag){
+            int gridX = (int) (position.x / (TILE_SIZE) + size.y/2);
+            int gridY = (int)(position.y/(-TILE_SIZE));
+            if (entityType==BULLETS){
+                if (gridX<=0 && gridX>=LEVEL_WIDTH){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+                if (gridY<=0 && gridY>=LEVEL_HEIGHT){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+            }
+            if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+                aliveFlag=false;
+            }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
+                float penetration=fabs(((TILE_SIZE*gridX)-position.x-(size.x/2)*TILE_SIZE));
+                position.x-=penetration;
+                rightFlag=true;
+                velocity.x=0;
+                shotFlag=true;
+            }else{
+                rightFlag=false;
+            }
         }
     }
     
     void checkLeftCollisionMap(){
-        int gridX = (int) (position.x / (TILE_SIZE) - size.y/2);
-        int gridY = (int)(position.y/(-TILE_SIZE));
-        if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
-            aliveFlag=false;
-            checkVictory();
-            nextTurn();
-        }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
-            float penetration=fabs(((TILE_SIZE*gridX)-position.x+(size.x/2)*TILE_SIZE));
-            penetration-=0.06f;
-            position.x+=penetration;
-            leftFlag=true;
-            velocity.x=0;
-        }else{
-            leftFlag=false;
+        if (aliveFlag){
+            int gridX = (int) (position.x / (TILE_SIZE) - size.y/2);
+            int gridY = (int)(position.y/(-TILE_SIZE));
+            if (entityType==BULLETS){
+                if (gridX<=0 && gridX>=LEVEL_WIDTH){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+                if (gridY<=0 && gridY>=LEVEL_HEIGHT){
+                    aliveFlag=false;
+                    shotFlag=true;
+                }
+            }
+            if (map.mapData[gridY][gridX]==1 || map.mapData[gridY][gridX]==35){
+                aliveFlag=false;
+            }else if (map.mapData[gridY][gridX]!=704 && map.mapData[gridY][gridX]!=257 && map.mapData[gridY][gridX]!=203 ){
+                float penetration=fabs(((TILE_SIZE*gridX)-position.x+(size.x/2)*TILE_SIZE));
+                penetration-=0.06f;
+                position.x+=penetration;
+                leftFlag=true;
+                velocity.x=0;
+                shotFlag=true;
+            }else{
+                leftFlag=false;
+            }
         }
     }
     
     void checkVictory(){
-        int aliveCount=0;
-        for (Entity& someEntity:entities){
-            if (someEntity.aliveFlag){
-                aliveCount++;
-            }
+        if (!entities[0].aliveFlag){
+            winner=1;
+            mode=GAME_OVER;
         }
-        
-    }
-    
-    void nextTurn(){
-        if(&entities[turnIndex]==this){
-            turnIndex++;
-            if (turnIndex==4){
-                turnIndex=0;
-            }
-            while (!entities[turnIndex].aliveFlag){
-                if (turnIndex==4){
-                    turnIndex=0;
-                }
-                turnIndex++;
-            }
-        }
-    }
-};
+        else if (!entities[1].aliveFlag){
+            winner=2;
+            mode=GAME_OVER;
 
+        }
+    }
+
+};
 
 void convertFlareEntity(){
     // converts flare map entity to in-game entity.
+    int count=0;
     for (FlareMapEntity& someEntity:map.entities){
         float xPos=someEntity.x*TILE_SIZE;
         float yPos=someEntity.y*-TILE_SIZE;
         Entity newEntity;
         newEntity.position=glm::vec3(xPos,yPos,0.0f);
-        newEntity.modelAnimation=&character1;
-        newEntity.entityType=PLAYER1;
+        if (count==0){
+            newEntity.modelAnimation=&character1;
+            newEntity.entityType=PLAYER1;
+        }else{
+            newEntity.entityType=PLAYER2;
+            newEntity.modelAnimation=&character2Vec;
+
+        }
+        count++;
         newEntity.sprite=*((*newEntity.modelAnimation)[newEntity.index]);
         entities.push_back(newEntity);
     }
+
     
 };
 
@@ -560,78 +724,11 @@ void drawMCSprite(int index, int spriteCountX,int spriteCountY) {
 }
 
 
-void renderUI(){
-    //writes move left
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.75f,0.95f,0.0f));
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    DrawText(font, "Moves Left:", TILE_SIZE, 0.0005);
-    
-    //render move icon
-    if (entities[turnIndex].moveFlag){
-        modelMatrix = glm::mat4(1.0f);
-        modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-        modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.20f,0.95f,0.0f));
-        modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE));
-        program.SetModelMatrix(modelMatrix);
-        drawMCSprite(314, SPRITE_COUNT_X, SPRITE_COUNT_Y);
-    }
-    
-    // render attack icon
-    if (entities[turnIndex].attackFlag){
-        modelMatrix = glm::mat4(1.0f);
-        modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-        modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.1f,0.95f,0.0f));
-        modelMatrix=glm::scale(modelMatrix,glm::vec3(TILE_SIZE));
-        program.SetModelMatrix(modelMatrix);
-        drawMCSprite(59, SPRITE_COUNT_X, SPRITE_COUNT_Y);
-    }
-    
-    // write timer
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.75f,0.85f,0.0f));
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    DrawText(font, "Move Timer:", TILE_SIZE, 0.0005);
-    
-    //render time left
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.20f,0.85f,0.0f));
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    int timeInt=entities[turnIndex].turnTimer;
-    string time = std::to_string(timeInt)+"s";
-    DrawText(font, time, TILE_SIZE, 0.0005);
-    
-    
-    //render "current HP"
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.750f,0.75f,0.0f));
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    DrawText(font, "Current HP", TILE_SIZE, 0.0005);
-    
-    //render  HP
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix=glm::translate(modelMatrix,entities[turnIndex].position);
-    modelMatrix=glm::translate(modelMatrix, glm::vec3(-1.2f,0.75f,0.0f));
-    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.75f,1.0f,1.0f));
-    program.SetModelMatrix(modelMatrix);
-    string health = std::to_string(entities[turnIndex].hp);
-    DrawText(font, health, TILE_SIZE, 0.0005);
-    
-}
-
-void randomSpawn(){
-    //generate 4 player
+void intialSpawn(){
+    //generate 2 player
     srand(time(0));
     vector <int> positions;
-    for (int i=0;i<4;i++){
+    for (int i=0;i<2;i++){
         //random x position
         int randomX=((rand())%39)+8;
         // dont want duplicate x positions for spawns
@@ -651,19 +748,8 @@ void randomSpawn(){
                     break;
                 }
             }
-//        }else{
-//            cout<<"bot"<<endl;
-//            for (int i=LEVEL_HEIGHT-1;i>0;i--){
-//                if(map.mapData[i][randomX]==704 && map.mapData[i][randomX]==257 && map.mapData[i][randomX]==203){
-//                    FlareMapEntity someEntity;
-//                    someEntity.x=randomX;
-//                    someEntity.y=i;
-//                    map.entities.push_back(someEntity);
-//                    break;
-//                }
-            }
         }
-
+    }
     convertFlareEntity();
 }
 
@@ -738,7 +824,7 @@ void renderMap(){
 
 void setUp(){
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("XCOM Worms", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 576, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("One-Hit", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 576, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
     
@@ -751,7 +837,7 @@ void setUp(){
     
     
     //loads textured file in program
-    program.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER"fragment_textured.glsl");
+    program.Load(RESOURCE_FOLDER"vertex_textured.glsl",RESOURCE_FOLDER"fragment_textured.glsl");
     //loads untextured poly program
     program1.Load(RESOURCE_FOLDER"vertex.glsl",RESOURCE_FOLDER"fragment.glsl");
     
@@ -773,12 +859,19 @@ void setUp(){
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     
-    map.Load(RESOURCE_FOLDER"level1.txt");
     mineCraft= LoadTexture(RESOURCE_FOLDER"minecraft_Sprite.png");
     characters=LoadTexture(RESOURCE_FOLDER"sprites.png");
     font=LoadTexture(RESOURCE_FOLDER"font2.png");
     weapons=LoadTexture(RESOURCE_FOLDER"combat.png");
-    renderMap();
+    map1=LoadTexture(RESOURCE_FOLDER"map1.png");
+    map2=LoadTexture(RESOURCE_FOLDER"map2.png");
+    map3=LoadTexture(RESOURCE_FOLDER"map3.png");
+    menuMusic=Mix_LoadMUS("menuMusic.mp3");
+    gameMusic=Mix_LoadMUS("gameMusic.mp3");
+    shootBullet=Mix_LoadWAV("awpSound.wav");
+    character2=LoadTexture(RESOURCE_FOLDER"character2.png");
+    
+    
     
     SheetSprite* model_1_1 = new SheetSprite(characters,0.0f/32.0f, 16.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
     character1.push_back(model_1_1);
@@ -789,23 +882,24 @@ void setUp(){
     SheetSprite* model_1_4 = new SheetSprite(characters,0.0f/32.0f, 0.0f/32.0f, 10.0f/32.0f, 16.0f/32.0f, 1.0f);
     character1.push_back(model_1_4);
     
-    //arrow
-    SheetSprite* arrowSprite= new SheetSprite(weapons,58.0f/128.0f, 0.0f/64.0f, 12.0f/128.0f, 46.0f/64.0f, 1.0f);
-    Entity arrow;
-    arrow.sprite=*arrowSprite;
-    arrow.position=glm::vec3(100);
-    arrow.friction=glm::vec3(0);
-    arrow.entityType=ART;
-    combatElements.push_back(arrow);
+    SheetSprite* model_2_1 = new SheetSprite(character2,12.0f/32.0f, 16.0f/32.0f, 11.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_1);
+    SheetSprite* model_2_2 = new SheetSprite(character2,0.0f/32.0f, 0.0f/32.0f, 12.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_2);
+    SheetSprite* model_2_3 = new SheetSprite(character2,12.0f/32.0f, 0.0f/32.0f, 11.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_3);
+    SheetSprite* model_2_4 = new SheetSprite(character2,0.0f/32.0f, 16.0f/32.0f, 12.0f/32.0f, 16.0f/32.0f, 1.0f);
+    character2Vec.push_back(model_2_4);
+    
     
     //machine gun
     SheetSprite* machineGunSprite= new SheetSprite(weapons,0.0f/128.0f, 0.0f/64.0f, 58.0f/128.0f, 26.0f/64.0f, 1.0f);
     Entity machineGun;
     machineGun.sprite=*machineGunSprite;
-    arrow.position=glm::vec3(100);
+    machineGun.position=glm::vec3(100);
     machineGun.friction=glm::vec3(0);
     machineGun.entityType=ART;
-    combatElements.push_back(machineGun);
+    combat.push_back(machineGun);
     
     //bullet
     SheetSprite* bulletSprite= new SheetSprite(weapons,0.0f/128.0f, 26.0f/64.0f, 13.0f/128.0f, 38.0f/64.0f, 1.0f);
@@ -813,54 +907,338 @@ void setUp(){
     bullet.sprite=*bulletSprite;
     bullet.position=glm::vec3(100);
     bullet.friction=glm::vec3(0);
+    bullet.size=glm::vec3(0.5);
     bullet.entityType=BULLETS;
     bullet.aliveFlag=false;
-    combatElements.push_back(bullet);
+    combat.push_back(bullet);
+    combat.push_back(bullet);
+    
+    srand(time(0));
+    float random;
+    for (int i = 0; i < 50; i++) {
+        random=rand()%100;
+        Particle p;
+        p.lifetime = lerp(0.0, particleSources[0].maxLifetime,random/100.0);
+        p.sizeDeviation = lerp(-particleSources[0].sizeDeviation, particleSources[0].sizeDeviation,random/100.0);
+        particleSources[0].particles.push_back(p);
+    }
+    
+    //camera entity
+    Entity camera;
+    camera.position.x=28*TILE_SIZE;
+    camera.position.y=20*-TILE_SIZE;
+    camera.entityType=ART;
+    combat.push_back(camera);
+}
 
-    
-    randomSpawn();
-    
+void cameraMovement(){
+    if (mapSelect==1){
+        viewMatrix = glm::mat4(1.0f);
+        viewMatrix=glm::translate(viewMatrix,-combat[3].position);
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(0.0,-0.35,0.0));
+        viewMatrix=glm::scale(viewMatrix,glm::vec3(1.0f,0.85,1.0f));
+        program.SetViewMatrix(viewMatrix);
+    }else if(mapSelect!=1){
+        viewMatrix = glm::mat4(1.0f);
+        viewMatrix=glm::translate(viewMatrix,-combat[3].position);
+        viewMatrix=glm::translate(viewMatrix,glm::vec3(0.0,-0.15,0.0));
+        viewMatrix=glm::scale(viewMatrix,glm::vec3(1.0f,0.85,1.0f));
+        program.SetViewMatrix(viewMatrix);
+    }
+}
+
+void gameSetUp(){
+    if (mapSelect==1){
+        map.Load(RESOURCE_FOLDER"level1.txt");
+    }else if (mapSelect==2){
+        map.Load(RESOURCE_FOLDER"level2.txt");
+    }else if (mapSelect==3){
+        map.Load(RESOURCE_FOLDER"level3.txt");
+    }
+    renderMap();
+    intialSpawn();
+    setUpCount++;
 }
 
 void renderGameLevel(){
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    
+    if (setUpCount==0){
+        gameSetUp();
+    }
+    
     renderMap();
-    renderUI();
+    cameraMovement();
     for (Entity& someEntity:entities){
         someEntity.render();
+    }
+
+    if (startTimer>1.0f){
+        string timeString=std::to_string(int(startTimer));
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[3].position);
+        modelMatrix=glm::translate(modelMatrix,glm::vec3(0.0,1.0f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        DrawText(font, timeString, 0.25, 0.0005);
+    }
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
+}
+
+void renderGameMenu(){
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(0, 0, 0, 1.0f);
+    
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program1.positionAttribute);
+    
+    program1.SetColor(0.824f,0.839f,0.851f, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.4f,0.5f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font, "One-Hit", 0.25f,0.0005f);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.25f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font, "Start", 0.25f,0.0005f);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
+}
+
+void renderMapSelect(){
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(0, 0, 0, 1.0f);
+    
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program.positionAttribute);
+    float texCoords[] = {0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0};
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, texCoords);
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    
+    glBindTexture(GL_TEXTURE_2D, map1);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.60f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    glBindTexture(GL_TEXTURE_2D, map2);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.0f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    glBindTexture(GL_TEXTURE_2D, map3);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(0.60f,0.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.80f,0.5f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(0.5f,0.5f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font, "Select Your Map", 0.25f,0.0005f);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
+}
+
+void renderPause(){
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    renderMap();
+    cameraMovement();
+    for (Entity& someEntity:entities){
+        someEntity.render();
+    }
+    
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program1.positionAttribute);
+    
+    program1.SetColor(0.8,0.95,0.58, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.3f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    program1.SetColor(1.0,0.44,0.38, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.35,0.25f,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Restart", 0.075, 0.0005);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.1,-0.10,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Quit", 0.075, 0.0005);
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
+}
+
+void renderGameOver(){
+    float offset=0;
+    if (mapSelect!=1){
+        offset=0.25f;
+    }
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
+    
+    renderMap();
+    
+    cameraMovement();
+    for (Entity& someEntity:entities){
+        someEntity.render();
+    }
+    
+    float vertices[] = {-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5};
+    glVertexAttribPointer(program1.positionAttribute, 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program1.positionAttribute);
+    
+    program1.SetColor(0.8,0.95,0.58, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.3f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    program1.SetColor(1.0,0.44,0.38, 1.0f);
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-1.75,1.0f,1.0f));
+    modelMatrix=glm::scale(modelMatrix,glm::vec3(1.0f,0.25f,1.0f));
+    program1.SetModelMatrix(modelMatrix);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.35,0.25f-offset,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Play Again", 0.075, 0.0005);
+    
+    modelMatrix = glm::mat4(1.0f);
+    modelMatrix=glm::translate(modelMatrix,combat[3].position);
+    modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.1,-0.10-offset,1.0f));
+    program.SetModelMatrix(modelMatrix);
+    DrawText(font,"Quit", 0.075, 0.0005);
+    
+    if (winner==1){
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[3].position);
+        modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.5f,1.0f,1.0f));
+        program.SetModelMatrix(modelMatrix);
+        DrawText(font,"Player 2 Wins!", 0.075, 0.0005);
+    }else if (winner==2){
+        modelMatrix = glm::mat4(1.0f);
+        modelMatrix=glm::translate(modelMatrix,combat[3].position);
+        modelMatrix=glm::translate(modelMatrix,glm::vec3(-0.5f,1.0f,0.0f));
+        program.SetModelMatrix(modelMatrix);
+        DrawText(font,"Player 1 Wins!", 0.075, 0.0005);
+    }
+    
+    particleSources[0].position = combat[3].position;
+    particleSources[0].position.x-=1.76f;
+    particleSources[0].position.y+=1.4f;
+    particleSources[0].Render();
+    
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+    glDisableVertexAttribArray(program1.positionAttribute);
+
+    
+}
+
+
+void Render(){
+    switch(mode){
+        case MAIN_MENU:
+            renderGameMenu();
+            break;
+        case MAP_SELECT:
+            renderMapSelect();
+            break;
+        case GAME_LEVEL:
+            renderGameLevel();
+            break;
+        case GAME_OVER:
+            renderGameOver();
+            break;
     }
 }
 
 void update(float elapsed){
+    if (startTimer>1.0f){
+        startTimer-=elapsed;
+    }
     for (Entity& someEntity:entities){
         someEntity.update(elapsed);
     }
-    for (Entity& someEntity:combatElements){
+    particleSources[0].position = combat[3].position;
+    particleSources[0].position.x-=2.0f;
+    particleSources[0].Update(elapsed);
+    
+    for (Entity& someEntity:combat){
         someEntity.update(elapsed);
     }
 }
 
-void cameraMovement(){
+void reset(){
+    startTimer=4.0f;
+    setUpCount=0;
     viewMatrix = glm::mat4(1.0f);
-    if (keys[SDL_SCANCODE_1]){
-        turnIndex=1;
-    }
-    if (keys[SDL_SCANCODE_2]){
-        turnIndex=2;
-    }
-    if (keys[SDL_SCANCODE_3]){
-        turnIndex=3;
-    }
-    viewMatrix=glm::translate(viewMatrix,-entities[turnIndex].position);    
     program.SetViewMatrix(viewMatrix);
+    program1.SetViewMatrix(viewMatrix);
+    character1.clear();
+    entities.clear();
+    map.entities.clear();
+    combat[1].position=glm::vec3(100);
+    combat[2].position=glm::vec3(100);
+    combat[1].aliveFlag=false;
+    combat[2].aliveFlag=false;
+    combat[1].shotFlag=true;
+    combat[2].shotFlag=true;
 }
-
 
 
 int main(int argc, char *argv[])
 {
-    
     setUp();
-    renderGameLevel();
+    Mix_PlayMusic(menuMusic, -1);
+
 
     float accumulator = 0.0f;
     float lastFrameTicks=0.0f;
@@ -872,11 +1250,49 @@ int main(int argc, char *argv[])
             if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
                 done = true;
             }
+            if(event.type == SDL_MOUSEMOTION) {
+                mouseX = (((float)event.motion.x / 640.0f) * 3.554f ) - 1.777f;
+                mouseY = (((float)(360-event.motion.y) / 360.0f) * 2.0f ) - 1.0f;
+            }
+            //cout<<mouseX<<"-"<<mouseY<<endl;
+            if (event.type==SDL_MOUSEBUTTONDOWN && mode==MAIN_MENU) {
+                if(mouseX>START_BOX_Left && mouseX<START_BOX_RIGHT && mouseY>START_BOX_BOTTOM && mouseY<START_BOX_TOP){
+                    mode=MAP_SELECT;
+                }
+            }
+            else if (event.type==SDL_MOUSEBUTTONDOWN && mode==MAP_SELECT) {
+                if(mouseX>MAP1_LEFT && mouseX<MAP1_RIGHT && mouseY>MAP1_BOT && mouseY<MAP1_TOP){
+                    mapSelect=1;
+                    mode=GAME_LEVEL;
+                }else if(mouseX>MAP1_LEFT+0.95f && mouseX<MAP1_RIGHT+0.95f && mouseY>MAP1_BOT && mouseY<MAP1_TOP){
+                    mapSelect=2;
+                    mode=GAME_LEVEL;
+                }
+                else if(mouseX>MAP1_LEFT+1.9f && mouseX<MAP1_RIGHT+1.9f && mouseY>MAP1_BOT && mouseY<MAP1_TOP){
+                    mapSelect=3;
+                    mode=GAME_LEVEL;
+                }
+                Mix_HaltMusic();
+                Mix_PlayMusic(gameMusic, -1);
+                Mix_VolumeMusic(70);
+            }else if (event.type==SDL_MOUSEBUTTONDOWN && mode==GAME_OVER) {
+                Mix_HaltMusic();
+                Mix_PlayMusic(menuMusic, -1);
+                Mix_VolumeMusic(90);
+                if(mouseX>TILED_BOX_LEFT1 && mouseX<TILED_BOX_RIGHT1 && mouseY>TILED_BOX_BOT1 && mouseY<TILED_BOX_TOP1){
+                    reset();
+                    mode=MAP_SELECT;
+                }else if(mouseX>TILED_BOX_LEFT2 && mouseX<TILED_BOX_RIGHT2 && mouseY>TILED_BOX_BOT2 && mouseY<TILED_BOX_TOP2){
+                    Mix_FreeMusic(menuMusic);
+                    Mix_FreeMusic(gameMusic);
+                    Mix_FreeChunk(shootBullet);
+                    SDL_Quit();
+                    return 0;
+                }
+            }else if (event.type==SDL_MOUSEBUTTONDOWN && mode==GAME_OVER) {
+                
+            }
         }
-        glClear(GL_COLOR_BUFFER_BIT);
-        //background as skyblue
-        glClearColor(29/255.0, 41/255.0, 81/255.0, 1.0f);
-        
         //game tick system
         float ticks=(float)SDL_GetTicks()/1000.0f;
         float elapsed=ticks-lastFrameTicks;
@@ -886,22 +1302,25 @@ int main(int argc, char *argv[])
         elapsed += accumulator;
         if(elapsed < FIXED_TIMESTEP) {
             accumulator = elapsed;
-            continue; }
+            continue;
+        }
         
         while(elapsed >= FIXED_TIMESTEP) {
-            update(FIXED_TIMESTEP);
+            if ((mode==GAME_LEVEL) && setUpCount!=0){
+                update(FIXED_TIMESTEP);
+            }else if(mode==GAME_OVER){
+                particleSources[0].Update(FIXED_TIMESTEP);
+            }
             elapsed -= FIXED_TIMESTEP;
         }
         accumulator = elapsed;
-        
-        renderGameLevel();
-        cameraMovement();
+        Render();
         SDL_GL_SwapWindow(displayWindow);
     }
     
-    
-
-
+    Mix_FreeMusic(menuMusic);
+    Mix_FreeMusic(gameMusic);
+    Mix_FreeChunk(shootBullet);
     SDL_Quit();
     return 0;
 }
